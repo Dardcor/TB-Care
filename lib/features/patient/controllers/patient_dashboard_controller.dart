@@ -66,8 +66,25 @@ class PatientDashboardController extends GetxController {
   }
 
   Future<void> _loadArticles() async {
-    final result = await _rss.fetchArticles();
-    articles.assignAll(result);
+    final rssResult = await _rss.fetchArticles();
+    final supabaseResult = await _supabase.getArticles();
+    
+    final allArticles = [...supabaseResult, ...rssResult];
+    
+    final uniqueArticles = <String, ArticleModel>{};
+    for (var article in allArticles) {
+      uniqueArticles[article.title] = article;
+    }
+    
+    final mergedList = uniqueArticles.values.toList();
+    mergedList.sort((a, b) {
+      if (a.pubDate == null && b.pubDate == null) return 0;
+      if (a.pubDate == null) return 1;
+      if (b.pubDate == null) return -1;
+      return b.pubDate!.compareTo(a.pubDate!);
+    });
+
+    articles.assignAll(mergedList);
   }
 
   Future<void> refresh() async {

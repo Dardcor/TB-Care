@@ -139,14 +139,7 @@ class AiController extends GetxController {
     // Get AI response from Gemini
     final response = await _gemini.sendMessage(text);
 
-    // Determine source from response content
-    String? source;
-    if (response.toLowerCase().contains('kemenkes') ||
-        response.toLowerCase().contains('who') ||
-        response.toLowerCase().contains('dots')) {
-      source = 'Sumber: Kemenkes RI';
-    }
-
+    String? source; // Removed hardcoded Kemenkes RI source
     // Hide typing indicator (the dots) once we start displaying the text
     isTyping.value = false;
 

@@ -81,7 +81,7 @@ class ProfileScreen extends GetView<ProfileController> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      (profile?.role ?? 'User').toUpperCase(),
+                      ((profile?.role == 'patient' ? 'pasien' : profile?.role) ?? 'User').toUpperCase(),
                       style: AppTextStyles.bodySmall.copyWith(
                         color: Colors.white.withOpacity(0.9),
                         fontWeight: FontWeight.w500,

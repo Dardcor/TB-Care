@@ -1,13 +1,14 @@
 import 'dart:math';
 import 'package:get/get.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:dio/dio.dart';
 import '../../app/config/app_constants.dart';
 
 class GeminiService extends GetxService {
-  GenerativeModel? _model;
-  ChatSession? _chatSession;
   final List<String> _apiKeys = [];
+  final Dio _dio = Dio();
+  final List<Map<String, dynamic>> _chatHistory = [];
+  String? _currentApiKey;
 
   Future<GeminiService> init() async {
     final rawKeys = dotenv.env['GEMINI_API_KEY'] ?? '';
@@ -17,34 +18,17 @@ class GeminiService extends GetxService {
       rawKeys.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty),
     );
 
-    if (_apiKeys.isEmpty) return this;
-
-    _initializeRandomModel();
+    if (_apiKeys.isNotEmpty) {
+      _currentApiKey = _apiKeys[Random().nextInt(_apiKeys.length)];
+    }
 
     return this;
   }
 
-  void _initializeRandomModel() {
-    if (_apiKeys.isEmpty) return;
-
-    final randomKey = _apiKeys[Random().nextInt(_apiKeys.length)];
-
-    _model = GenerativeModel(
-      model: AppConstants.geminiModel,
-      apiKey: randomKey,
-      systemInstruction: Content.system(AppConstants.geminiSystemPrompt),
-      generationConfig: GenerationConfig(
-        temperature: 0.7,
-      ),
-    );
-
-    _chatSession = _model!.startChat();
-  }
-
-  bool get isAvailable => _model != null;
+  bool get isAvailable => _currentApiKey != null;
 
   Future<void> _ensureInitialized() async {
-    if (_model != null) return;
+    if (_currentApiKey != null) return;
     
     final rawKeys = dotenv.env['GEMINI_API_KEY'] ?? '';
     if (rawKeys.isNotEmpty && _apiKeys.isEmpty) {
@@ -54,7 +38,7 @@ class GeminiService extends GetxService {
     }
     
     if (_apiKeys.isNotEmpty) {
-      _initializeRandomModel();
+      _currentApiKey = _apiKeys[Random().nextInt(_apiKeys.length)];
     }
   }
 
@@ -71,28 +55,91 @@ class GeminiService extends GetxService {
 
   Future<String> _executeWithRetry(String userMessage, {int retries = 1}) async {
     try {
-      _chatSession ??= _model!.startChat();
-      final response = await _chatSession!.sendMessage(
-        Content.text(userMessage),
-      );
+      final url = 'https://generativelanguage.googleapis.com/v1beta/models/${AppConstants.geminiModel}:generateContent?key=$_currentApiKey';
       
-      String responseText = response.text ??
-          'Maaf, tidak ada respons dari AI. Coba beberapa saat lagi.';
-          
-      // Strip markdown characters (** and #) for clean text UI
-      responseText = responseText.replaceAll('**', '').replaceAll('#', '');
+      final currentMessage = {
+        "role": "user",
+        "parts": [
+          {"text": userMessage}
+        ]
+      };
       
-      return responseText;
-    } on GenerativeAIException catch (e) {
-      if (e.message.contains('429') || e.message.contains('quota')) {
+      final contents = [..._chatHistory, currentMessage];
+
+      final data = {
+        "systemInstruction": {
+          "parts": [
+            {"text": AppConstants.geminiSystemPrompt + " Jika kamu menggunakan informasi dari pencarian internet, kamu bisa menyebutkannya, tetapi usahakan penjelasan tetap berfokus pada ringkasan yang informatif."}
+          ]
+        },
+        "contents": contents,
+        "tools": [
+          {
+            "googleSearch": {}
+          }
+        ],
+        "generationConfig": {
+          "temperature": 0.7
+        }
+      };
+
+      final response = await _dio.post(url, data: data);
+
+      if (response.statusCode == 200) {
+        final resData = response.data;
+        final candidates = resData['candidates'] as List?;
+        if (candidates != null && candidates.isNotEmpty) {
+          final content = candidates[0]['content'];
+          final parts = content['parts'] as List?;
+          if (parts != null && parts.isNotEmpty) {
+            String responseText = parts[0]['text'] ?? 'Maaf, tidak ada respons dari AI. Coba beberapa saat lagi.';
+            
+            // Collect grounding sources/links if available
+            final groundingMetadata = candidates[0]['groundingMetadata'];
+            if (groundingMetadata != null) {
+              final chunks = groundingMetadata['groundingChunks'] as List?;
+              if (chunks != null && chunks.isNotEmpty) {
+                final linksMap = <String, String>{};
+                for (var chunk in chunks) {
+                  final web = chunk['web'];
+                  if (web != null && web['uri'] != null) {
+                    final uri = web['uri'] as String;
+                    final title = web['title'] as String? ?? uri;
+                    linksMap[uri] = title;
+                  }
+                }
+                if (linksMap.isNotEmpty) {
+                  responseText += '\n\nSumber referensi dari pencarian web:\n' + linksMap.entries.map((e) => '• [${e.value}](${e.key})').join('\n');
+                }
+              }
+            }
+
+            // Strip markdown characters (* and #) for clean text UI
+            responseText = responseText.replaceAll('*', '').replaceAll('#', '');
+
+            _chatHistory.add(currentMessage);
+            _chatHistory.add({
+              "role": "model",
+              "parts": [
+                {"text": responseText}
+              ]
+            });
+
+            return responseText;
+          }
+        }
+      }
+      return 'Maaf, tidak ada respons dari AI. Coba beberapa saat lagi.';
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 429 || (e.response?.data.toString().contains('quota') ?? false)) {
         if (retries > 0 && _apiKeys.length > 1) {
-          _initializeRandomModel();
+          _currentApiKey = _apiKeys[Random().nextInt(_apiKeys.length)];
           return await _executeWithRetry(userMessage, retries: retries - 1);
         }
         return 'Maaf, kuota harian AI telah habis. Silakan coba lagi besok.';
       }
       
-      if (e.message.contains('safety')) {
+      if (e.response?.data.toString().contains('safety') ?? false) {
         return 'Maaf, pertanyaan tersebut tidak dapat dijawab karena alasan keamanan. '
             'Silakan ajukan pertanyaan lain seputar TBC.';
       }
@@ -103,6 +150,9 @@ class GeminiService extends GetxService {
   }
 
   void resetChat() {
-    _initializeRandomModel();
+    _chatHistory.clear();
+    if (_apiKeys.isNotEmpty) {
+      _currentApiKey = _apiKeys[Random().nextInt(_apiKeys.length)];
+    }
   }
 }

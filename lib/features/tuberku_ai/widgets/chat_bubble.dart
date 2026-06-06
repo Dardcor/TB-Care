@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../app/config/app_colors.dart';
 import '../../../app/config/app_text_styles.dart';
 
@@ -67,13 +69,7 @@ class ChatBubble extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    text,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: isUser ? AppColors.white : AppColors.textPrimary,
-                      height: 1.5,
-                    ),
-                  ),
+                  _buildTextWithLinks(context, text, isUser),
                   if (source != null && !isUser) ...[
                     const SizedBox(height: 8),
                     Container(
@@ -114,4 +110,79 @@ class ChatBubble extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildTextWithLinks(BuildContext context, String text, bool isUser) {
+    // Regex matches [Title](URL) OR plain URL
+    final RegExp urlRegex = RegExp(r'\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)|(https?:\/\/[^\s\)]+)');
+    final matches = urlRegex.allMatches(text);
+
+    if (matches.isEmpty) {
+      return Text(
+        text,
+        style: AppTextStyles.bodyMedium.copyWith(
+          color: isUser ? AppColors.white : AppColors.textPrimary,
+          height: 1.5,
+        ),
+      );
+    }
+
+    final List<TextSpan> spans = [];
+    int lastMatchEnd = 0;
+
+    for (var match in matches) {
+      if (match.start > lastMatchEnd) {
+        spans.add(TextSpan(
+          text: text.substring(lastMatchEnd, match.start),
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: isUser ? AppColors.white : AppColors.textPrimary,
+            height: 1.5,
+          ),
+        ));
+      }
+
+      String textToShow;
+      String urlToLaunch;
+
+      if (match.group(1) != null && match.group(2) != null) {
+        // Matched [Title](URL)
+        textToShow = match.group(1)!;
+        urlToLaunch = match.group(2)!;
+      } else {
+        // Matched plain URL
+        textToShow = match.group(0)!;
+        urlToLaunch = match.group(0)!;
+      }
+
+      spans.add(TextSpan(
+        text: textToShow,
+        style: AppTextStyles.bodyMedium.copyWith(
+          color: isUser ? AppColors.white : AppColors.primary,
+          decoration: TextDecoration.underline,
+          height: 1.5,
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () async {
+            final uri = Uri.tryParse(urlToLaunch);
+            if (uri != null && await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+      ));
+
+      lastMatchEnd = match.end;
+    }
+
+    if (lastMatchEnd < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastMatchEnd),
+        style: AppTextStyles.bodyMedium.copyWith(
+          color: isUser ? AppColors.white : AppColors.textPrimary,
+          height: 1.5,
+        ),
+      ));
+    }
+
+    return RichText(text: TextSpan(children: spans));
+  }
 }
+

@@ -1,9 +1,11 @@
 import 'package:get/get.dart';
 import '../../../core/services/rss_service.dart';
+import '../../../core/services/supabase_service.dart';
 import '../../../core/models/article_model.dart';
 
 class ArticleController extends GetxController {
   final _rss = Get.find<RssService>();
+  final _supabase = Get.find<SupabaseService>();
 
   final isLoading = true.obs;
   final articles = <ArticleModel>[].obs;
@@ -28,8 +30,26 @@ class ArticleController extends GetxController {
     hasError.value = false;
 
     try {
-      final result = await _rss.fetchArticles();
-      articles.assignAll(result);
+      final rssResult = await _rss.fetchArticles();
+      final supabaseResult = await _supabase.getArticles();
+      
+      final allArticles = [...supabaseResult, ...rssResult];
+      
+      // Remove duplicates by title if any (Supabase might have seeded RSS items)
+      final uniqueArticles = <String, ArticleModel>{};
+      for (var article in allArticles) {
+        uniqueArticles[article.title] = article;
+      }
+      
+      final mergedList = uniqueArticles.values.toList();
+      mergedList.sort((a, b) {
+        if (a.pubDate == null && b.pubDate == null) return 0;
+        if (a.pubDate == null) return 1;
+        if (b.pubDate == null) return -1;
+        return b.pubDate!.compareTo(a.pubDate!);
+      });
+
+      articles.assignAll(mergedList);
       _applyFilters();
     } catch (_) {
       hasError.value = true;

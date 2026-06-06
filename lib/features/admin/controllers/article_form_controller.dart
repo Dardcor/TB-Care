@@ -53,7 +53,7 @@ class ArticleFormController extends GetxController {
 
       await _supabase.insertArticle(articleData);
 
-      Get.snackbar('Berhasil', 'Artikel baru berhasil diterbitkan',
+      Get.snackbar('Berhasil', 'artikel baru sedang diupload',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.green.shade100);
 

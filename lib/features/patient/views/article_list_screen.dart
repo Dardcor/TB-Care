@@ -109,6 +109,7 @@ class ArticleListScreen extends GetView<ArticleController> {
                 onRefresh: controller.refresh,
                 color: AppColors.primary,
                 child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   itemCount: controller.filteredArticles.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),

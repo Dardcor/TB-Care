@@ -8,12 +8,27 @@ import '../../../app/routes/app_routes.dart';
 import '../../../core/models/article_model.dart';
 import '../../../core/widgets/app_button.dart';
 
-class ArticleDetailScreen extends StatelessWidget {
+class ArticleDetailScreen extends StatefulWidget {
   const ArticleDetailScreen({super.key});
 
   @override
+  State<ArticleDetailScreen> createState() => _ArticleDetailScreenState();
+}
+
+class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
+  ArticleModel? article;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Get.arguments is ArticleModel) {
+      article = Get.arguments as ArticleModel;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final article = Get.arguments as ArticleModel?;
+    final article = this.article;
 
     if (article == null) {
       return Scaffold(
@@ -92,6 +107,29 @@ class ArticleDetailScreen extends StatelessWidget {
               article.description,
               style: AppTextStyles.bodyLarge.copyWith(height: 1.7),
             ),
+            if (article.link.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'Referensi Link:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              GestureDetector(
+                onTap: () async {
+                  final uri = Uri.tryParse(article.link);
+                  if (uri != null && await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                child: Text(
+                  article.link,
+                  style: const TextStyle(
+                    color: Colors.blue,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 80),
           ],
         ),

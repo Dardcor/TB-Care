@@ -6,6 +6,7 @@ import '../models/patient_model.dart';
 import '../models/facility_model.dart';
 import '../models/tracing_model.dart';
 import '../models/user_model.dart';
+import '../models/article_model.dart';
 
 class SupabaseService extends GetxService {
   late final SupabaseClient _client;
@@ -180,6 +181,19 @@ class SupabaseService extends GetxService {
     await _client
         .from(SupabaseConfig.articlesTable)
         .insert(data);
+  }
+
+  Future<List<ArticleModel>> getArticles() async {
+    try {
+      final data = await _client
+          .from(SupabaseConfig.articlesTable)
+          .select()
+          .order('pub_date', ascending: false);
+      return data.map((e) => ArticleModel.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('[SupabaseService] getArticles error: $e');
+      return [];
+    }
   }
 
   Future<List<Map<String, dynamic>>> getZones() async {
