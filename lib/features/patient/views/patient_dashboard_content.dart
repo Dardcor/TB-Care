@@ -128,7 +128,7 @@ class PatientDashboardContent extends GetView<PatientDashboardController> {
           children: [
             Text('Artikel Terbaru', style: AppTextStyles.titleLarge),
             TextButton(
-              onPressed: () => Get.toNamed(AppRoutes.articleList),
+              onPressed: () => controller.changeTab(2),
               child: Text(
                 'Lihat Semua',
                 style: AppTextStyles.bodySmall.copyWith(
