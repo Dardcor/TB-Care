@@ -287,7 +287,7 @@ class _FacilityPreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typeColor = _colorFor(facility.type);
-    final firstHours = facility.openingHours?.entries.first;
+    final firstHours = (facility.openingHours != null && facility.openingHours!.isNotEmpty) ? facility.openingHours!.entries.first : null;
 
     return Positioned(
       bottom: 16,
@@ -585,7 +585,9 @@ class _FacilityListSheet extends StatelessWidget {
                             controller.filteredFacilities[index];
                         final typeColor = _colorFor(facility.type);
                         final firstHours =
-                            facility.openingHours?.entries.first;
+                            (facility.openingHours != null && facility.openingHours!.isNotEmpty)
+                                ? facility.openingHours!.entries.first
+                                : null;
                         return GestureDetector(
                           onTap: () {
                             Get.toNamed(

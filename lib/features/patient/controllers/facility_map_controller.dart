@@ -410,7 +410,7 @@ class FacilityMapController extends GetxController {
             title: facility.name,
             snippet: facility.formattedDistance,
           ),
-          onTap: () => selectFacility(facility),
+          onTap: () => openFacilityDetail(facility),
         ),
       );
     }

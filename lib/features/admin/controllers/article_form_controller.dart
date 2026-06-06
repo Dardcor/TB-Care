@@ -11,28 +11,38 @@ class ArticleFormController extends GetxController {
   final titleController = TextEditingController();
   final linkController = TextEditingController();
   final descriptionController = TextEditingController();
-  final sourceController = TextEditingController();
-
-  @override
-  void onInit() {
-    super.onInit();
-    sourceController.text = 'Kemenkes RI'; // Default source
-  }
+  
+  // Topic selection
+  final selectedTopic = 'Info TBC'.obs;
+  final List<String> availableTopics = [
+    'Info TBC',
+    'Pencegahan',
+    'Pengobatan',
+    'Gaya Hidup',
+    'Gizi & Diet',
+    'Kesehatan Mental',
+    'Lainnya'
+  ];
 
   @override
   void onClose() {
     titleController.dispose();
     linkController.dispose();
     descriptionController.dispose();
-    sourceController.dispose();
     super.onClose();
+  }
+
+  void changeTopic(String? newTopic) {
+    if (newTopic != null) {
+      selectedTopic.value = newTopic;
+    }
   }
 
   Future<void> saveArticle() async {
     final title = titleController.text.trim();
     final link = linkController.text.trim();
     final description = descriptionController.text.trim();
-    final source = sourceController.text.trim();
+    final topic = selectedTopic.value;
 
     if (title.isEmpty) {
       Get.snackbar('Error', 'Judul artikel wajib diisi',
@@ -47,25 +57,26 @@ class ArticleFormController extends GetxController {
         'title': title,
         if (link.isNotEmpty) 'link': link,
         if (description.isNotEmpty) 'description': description,
-        'source': source.isNotEmpty ? source : 'Kemenkes RI',
+        'source': topic, // Repurposed as topic
         'pub_date': DateTime.now().toIso8601String(),
       };
 
-      await _supabase.insertArticle(articleData);
+      await _supabase.client.from('articles').insert(articleData);
 
-      Get.snackbar('Berhasil', 'artikel baru sedang diupload',
+      // Membuat notifikasi broadcast kepada seluruh pasien
+      await _supabase.createBroadcastNotification(
+        'Artikel Baru: $title',
+        'Ada artikel edukasi baru untuk Anda. Yuk baca sekarang!',
+        'article',
+      );
+
+      Get.snackbar('Berhasil', 'Artikel kesehatan berhasil ditambahkan',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.green.shade100);
-
-      // Clear the inputs
-      titleController.clear();
-      linkController.clear();
-      descriptionController.clear();
-      sourceController.text = 'Kemenkes RI';
-
-      Get.back(); // Go back to the previous screen
+          
+      Get.back(result: true);
     } catch (e) {
-      Get.snackbar('Gagal Mempublikasikan', 'Terjadi kesalahan: ${e.toString()}',
+      Get.snackbar('Gagal', 'Terjadi kesalahan: $e',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red.shade100);
     } finally {

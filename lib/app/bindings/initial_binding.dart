@@ -3,7 +3,6 @@ import '../../core/services/supabase_service.dart';
 import '../../core/services/gemini_service.dart';
 import '../../core/services/location_service.dart';
 import '../../core/services/notification_service.dart';
-import '../../core/services/rss_service.dart';
 
 class InitialBinding extends Bindings {
   @override
@@ -14,6 +13,5 @@ class InitialBinding extends Bindings {
     Get.find<GeminiService>();
     Get.find<LocationService>();
     Get.find<NotificationService>();
-    Get.find<RssService>();
   }
 }

@@ -55,3 +55,7 @@ android/app/google-services.json
 # AI Agents Knowledge Base
 AGENTS.md
 **/AGENTS.md
+
+# Sisyphus/OhMyOpenCode related
+.sisyphus/
+.opencode/

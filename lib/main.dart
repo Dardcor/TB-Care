@@ -11,7 +11,6 @@ import 'core/services/supabase_service.dart';
 import 'core/services/gemini_service.dart';
 import 'core/services/location_service.dart';
 import 'core/services/notification_service.dart';
-import 'core/services/rss_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +29,6 @@ void main() async {
   await Get.putAsync(() => GeminiService().init());
   await Get.putAsync(() => LocationService().init());
   await Get.putAsync(() => NotificationService().init());
-  await Get.putAsync(() => RssService().init());
 
   // Check existing session for auto-login
   final supabase = Get.find<SupabaseService>();

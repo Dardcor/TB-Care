@@ -719,4 +719,73 @@ class SupabaseService extends GetxService {
       debugPrint('[SupabaseService] _seedSurabayaTimurData error: $e');
     }
   }
+  // --- Notifications ---
+
+  Future<List<Map<String, dynamic>>> getPatientNotifications(String? userId) async {
+    if (userId == null) return [];
+    try {
+      final response = await _client
+          .from('notifications')
+          .select()
+          .or('user_id.eq.$userId,user_id.is.null')
+          .order('created_at', ascending: false)
+          .limit(20);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('[SupabaseService] getPatientNotifications error: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAdminNotifications() async {
+    try {
+      final response = await _client
+          .from('notifications')
+          .select()
+          .eq('type', 'out_of_zone')
+          .order('created_at', ascending: false)
+          .limit(30);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('[SupabaseService] getAdminNotifications error: $e');
+      return [];
+    }
+  }
+
+  Future<void> markNotificationAsRead(String id) async {
+    try {
+      await _client
+          .from('notifications')
+          .update({'is_read': true})
+          .eq('id', id);
+    } catch (e) {
+      debugPrint('[SupabaseService] markNotificationAsRead error: $e');
+    }
+  }
+
+  Future<void> markAllNotificationsAsRead(String? userId) async {
+    if (userId == null) return;
+    try {
+      await _client
+          .from('notifications')
+          .update({'is_read': true})
+          .or('user_id.eq.$userId,user_id.is.null')
+          .eq('is_read', false);
+    } catch (e) {
+      debugPrint('[SupabaseService] markAllNotificationsAsRead error: $e');
+    }
+  }
+
+  Future<void> createBroadcastNotification(String title, String message, String type) async {
+    try {
+      await _client.from('notifications').insert({
+        'title': title,
+        'message': message,
+        'type': type,
+        'is_read': false,
+      });
+    } catch (e) {
+      debugPrint('[SupabaseService] createBroadcastNotification error: $e');
+    }
+  }
 }

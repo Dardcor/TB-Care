@@ -41,11 +41,37 @@ class ArticleFormScreen extends GetView<ArticleFormController> {
                     hint: 'Masukkan judul artikel kesehatan',
                     controller: controller.titleController,
                   ),
-                  _buildField(
-                    label: 'Sumber Artikel',
-                    hint: 'Contoh: Kemenkes RI, TBC Indonesia',
-                    controller: controller.sourceController,
-                  ),
+                    const Text(
+                      'Kategori / Topik *',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A2E),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Obx(() => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            border: Border.all(color: Colors.grey.shade200),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              isExpanded: true,
+                              value: controller.selectedTopic.value,
+                              items: controller.availableTopics
+                                  .map((topic) => DropdownMenuItem(
+                                        value: topic,
+                                        child: Text(topic),
+                                      ))
+                                  .toList(),
+                              onChanged: controller.changeTopic,
+                            ),
+                          ),
+                        )),
+                    const SizedBox(height: 20),
                   _buildField(
                     label: 'Tautan/Link Artikel (Opsional)',
                     hint: 'Contoh: https://ayosehat.kemkes.go.id/...',

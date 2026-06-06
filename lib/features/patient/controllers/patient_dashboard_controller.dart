@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/services/supabase_service.dart';
-import '../../../core/services/rss_service.dart';
 import '../../../core/models/article_model.dart';
 import '../views/patient_dashboard_content.dart';
 import '../views/facility_map_screen.dart';
@@ -13,7 +12,6 @@ import '../../profile/controllers/profile_controller.dart';
 
 class PatientDashboardController extends GetxController {
   final _supabase = Get.find<SupabaseService>();
-  final _rss = Get.find<RssService>();
 
   final isLoading = true.obs;
   final userName = ''.obs;
@@ -66,13 +64,10 @@ class PatientDashboardController extends GetxController {
   }
 
   Future<void> _loadArticles() async {
-    final rssResult = await _rss.fetchArticles();
     final supabaseResult = await _supabase.getArticles();
     
-    final allArticles = [...supabaseResult, ...rssResult];
-    
     final uniqueArticles = <String, ArticleModel>{};
-    for (var article in allArticles) {
+    for (var article in supabaseResult) {
       uniqueArticles[article.title] = article;
     }
     

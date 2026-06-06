@@ -1,23 +1,11 @@
 import 'package:get/get.dart';
-
-class PatientNotificationModel {
-  final String id;
-  final String title;
-  final String message;
-  final DateTime date;
-  final bool isRead;
-
-  PatientNotificationModel({
-    required this.id,
-    required this.title,
-    required this.message,
-    required this.date,
-    this.isRead = false,
-  });
-}
+import '../../../core/models/notification_model.dart';
+import '../../../core/services/supabase_service.dart';
 
 class PatientNotificationController extends GetxController {
-  final notifications = <PatientNotificationModel>[].obs;
+  final _supabase = Get.find<SupabaseService>();
+
+  final notifications = <NotificationModel>[].obs;
   final isLoading = true.obs;
 
   @override
@@ -29,48 +17,42 @@ class PatientNotificationController extends GetxController {
   Future<void> fetchNotifications() async {
     isLoading.value = true;
     
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 1));
+    final user = _supabase.currentUser;
+    final data = await _supabase.getPatientNotifications(user?.id);
     
-    // Hardcoded patient-specific notifications
-    notifications.assignAll([
-      PatientNotificationModel(
-        id: '1',
-        title: 'Info Penting',
-        message: 'Mohon periksa profil Anda untuk pembaruan status kesehatan terbaru.',
-        date: DateTime.now().subtract(const Duration(hours: 1)),
-      ),
-      PatientNotificationModel(
-        id: '2',
-        title: 'Pembaruan Edukasi',
-        message: 'Artikel baru tentang gizi untuk pasien TBC telah ditambahkan.',
-        date: DateTime.now().subtract(const Duration(days: 1)),
-        isRead: true,
-      ),
-    ]);
+    notifications.assignAll(data.map((json) => NotificationModel.fromJson(json)).toList());
     
     isLoading.value = false;
   }
 
-  void markAsRead(String id) {
+  Future<void> markAsRead(String id) async {
+    await _supabase.markNotificationAsRead(id);
+    
     final index = notifications.indexWhere((n) => n.id == id);
     if (index != -1) {
       final notif = notifications[index];
-      notifications[index] = PatientNotificationModel(
+      notifications[index] = NotificationModel(
         id: notif.id,
+        userId: notif.userId,
         title: notif.title,
         message: notif.message,
-        date: notif.date,
-        isRead: true,
+      type: notif.type,
+      date: notif.date,
+      isRead: true,
       );
     }
   }
 
-  void markAllAsRead() {
-    final updated = notifications.map((n) => PatientNotificationModel(
+  Future<void> markAllAsRead() async {
+    final user = _supabase.currentUser;
+    await _supabase.markAllNotificationsAsRead(user?.id);
+    
+    final updated = notifications.map((n) => NotificationModel(
       id: n.id,
+      userId: n.userId,
       title: n.title,
       message: n.message,
+      type: n.type,
       date: n.date,
       isRead: true,
     )).toList();

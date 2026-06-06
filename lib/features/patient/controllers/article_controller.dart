@@ -1,10 +1,8 @@
 import 'package:get/get.dart';
-import '../../../core/services/rss_service.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/models/article_model.dart';
 
 class ArticleController extends GetxController {
-  final _rss = Get.find<RssService>();
   final _supabase = Get.find<SupabaseService>();
 
   final isLoading = true.obs;
@@ -14,7 +12,16 @@ class ArticleController extends GetxController {
   final selectedFilter = 'Semua'.obs;
   final hasError = false.obs;
 
-  final filters = ['Semua', 'Kemenkes RI', 'WHO'].obs;
+  final filters = [
+    'Semua',
+    'Info TBC',
+    'Pencegahan',
+    'Pengobatan',
+    'Gaya Hidup',
+    'Gizi & Diet',
+    'Kesehatan Mental',
+    'Lainnya'
+  ].obs;
 
   // Current article for detail page
   final Rx<ArticleModel?> currentArticle = Rx<ArticleModel?>(null);
@@ -30,14 +37,10 @@ class ArticleController extends GetxController {
     hasError.value = false;
 
     try {
-      final rssResult = await _rss.fetchArticles();
       final supabaseResult = await _supabase.getArticles();
       
-      final allArticles = [...supabaseResult, ...rssResult];
-      
-      // Remove duplicates by title if any (Supabase might have seeded RSS items)
       final uniqueArticles = <String, ArticleModel>{};
-      for (var article in allArticles) {
+      for (var article in supabaseResult) {
         uniqueArticles[article.title] = article;
       }
       
