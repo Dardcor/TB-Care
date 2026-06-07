@@ -83,7 +83,6 @@ class AppPages {
     GetPage(
       name: AppRoutes.facilityDetail,
       page: () => const FacilityDetailScreen(),
-      binding: PatientBinding(),
     ),
     GetPage(
       name: AppRoutes.aiChat,
@@ -149,9 +148,6 @@ class AppPages {
       binding: BindingsBuilder(() {
         Get.lazyPut(() => ArticleFormController());
       }),
-    ),
-  ];
-}
     ),
   ];
 }
