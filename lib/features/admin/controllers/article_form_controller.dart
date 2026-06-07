@@ -70,15 +70,16 @@ class ArticleFormController extends GetxController {
         'article',
       );
 
+      Get.back(result: true);
       Get.snackbar('Berhasil', 'Artikel kesehatan berhasil ditambahkan',
           snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green.shade100);
-          
-      Get.back(result: true);
+          backgroundColor: Colors.green.shade100,
+          colorText: Colors.black);
     } catch (e) {
       Get.snackbar('Gagal', 'Terjadi kesalahan: $e',
           snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.shade100);
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
     } finally {
       isLoading.value = false;
     }

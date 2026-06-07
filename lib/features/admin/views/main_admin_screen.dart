@@ -5,6 +5,7 @@ import '../controllers/main_admin_controller.dart';
 import 'admin_dashboard_screen.dart';
 import 'heatmap_screen.dart';
 import 'add_patient_screen.dart';
+import 'article_form_screen.dart';
 import 'admin_profile_screen.dart';
 
 class MainAdminScreen extends GetView<MainAdminController> {
@@ -21,6 +22,7 @@ class MainAdminScreen extends GetView<MainAdminController> {
             AdminDashboardScreen(),
             HeatmapScreen(),
             AddPatientScreen(),
+            ArticleFormScreen(),
             AdminProfileScreen(),
           ],
         ),
@@ -50,6 +52,11 @@ class MainAdminScreen extends GetView<MainAdminController> {
               icon: Icon(Icons.person_add_outlined),
               activeIcon: Icon(Icons.person_add),
               label: 'Pasien',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.article_outlined),
+              activeIcon: Icon(Icons.article),
+              label: 'Artikel',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),
