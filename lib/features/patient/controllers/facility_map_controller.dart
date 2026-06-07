@@ -410,7 +410,7 @@ class FacilityMapController extends GetxController {
             title: facility.name,
             snippet: facility.formattedDistance,
           ),
-          onTap: () => openFacilityDetail(facility),
+          onTap: () => selectFacility(facility),
         ),
       );
     }
@@ -420,6 +420,14 @@ class FacilityMapController extends GetxController {
 
   void selectFacility(FacilityModel facility) {
     selectedFacility.value = facility;
+    if (mapController != null) {
+      mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(
+          LatLng(facility.latitude, facility.longitude),
+          15.0,
+        ),
+      );
+    }
   }
 
   void clearSelectedFacility() {

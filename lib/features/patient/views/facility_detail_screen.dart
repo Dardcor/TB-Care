@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../app/config/app_colors.dart';
-import '../../../app/config/app_text_styles.dart';
 import '../../../core/models/facility_model.dart';
 
 class FacilityDetailScreen extends StatelessWidget {
-  const FacilityDetailScreen({super.key});
+  /// Data fasilitas bisa dikirim via constructor (Get.to) ATAU via Get.arguments (Get.toNamed).
+  final FacilityModel? facility;
+  const FacilityDetailScreen({super.key, this.facility});
 
   IconData _iconFor(String type) {
     final t = type.toLowerCase();
@@ -51,17 +52,19 @@ class FacilityDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final facility = Get.arguments as FacilityModel?;
+    // Prioritas: constructor param → Get.arguments fallback
+    final FacilityModel? data = facility ?? (Get.arguments is FacilityModel ? Get.arguments as FacilityModel : null);
 
-    if (facility == null) {
+    if (data == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Detail Fasilitas')),
         body: const Center(child: Text('Fasilitas tidak ditemukan')),
       );
     }
 
-    final typeColor = _colorFor(facility.type);
-    final typeIcon = _iconFor(facility.type);
+    // Alias untuk kompatibilitas kode di bawah
+    final typeColor = _colorFor(data.type);
+    final typeIcon = _iconFor(data.type);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
@@ -133,7 +136,7 @@ class FacilityDetailScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              facility.name,
+                              data.name,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
@@ -150,7 +153,7 @@ class FacilityDetailScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
-                                facility.type.toUpperCase(),
+                                data.type.toUpperCase(),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,
@@ -182,7 +185,7 @@ class FacilityDetailScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Distance badge
-                        if (facility.distanceKm != null)
+                        if (data.distanceKm != null)
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 5),
@@ -198,7 +201,7 @@ class FacilityDetailScreen extends StatelessWidget {
                                     size: 13, color: typeColor),
                                 const SizedBox(width: 5),
                                 Text(
-                                  '${facility.formattedDistance} dari lokasi Anda',
+                                  '${data.formattedDistance} dari lokasi Anda',
                                   style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -207,18 +210,18 @@ class FacilityDetailScreen extends StatelessWidget {
                               ],
                             ),
                           ),
-                        if (facility.address != null)
+                        if (data.address != null)
                           _DetailRow(
                             icon: Icons.location_on_outlined,
                             iconColor: typeColor,
-                            text: facility.address!,
+                            text: data.address!,
                           ),
-                        if (facility.phone != null) ...[
+                        if (data.phone != null) ...[
                           const SizedBox(height: 12),
                           _DetailRow(
                             icon: Icons.phone_outlined,
                             iconColor: typeColor,
-                            text: facility.phone!,
+                            text: data.phone!,
                           ),
                         ],
                       ],
@@ -228,8 +231,8 @@ class FacilityDetailScreen extends StatelessWidget {
                   const SizedBox(height: 16),
 
                   // ── Jam Operasional ────────────────────────────────────
-                  if (facility.openingHours != null &&
-                      facility.openingHours!.isNotEmpty) ...[
+                  if (data.openingHours != null &&
+                      data.openingHours!.isNotEmpty) ...[
                     _SectionHeader(
                       icon: Icons.access_time_outlined,
                       label: 'Jam Operasional',
@@ -238,13 +241,13 @@ class FacilityDetailScreen extends StatelessWidget {
                     const SizedBox(height: 10),
                     _SectionCard(
                       child: Column(
-                        children: facility.openingHours!.entries
+                        children: data.openingHours!.entries
                             .toList()
                             .asMap()
                             .entries
                             .map((e) {
                           final isLast = e.key ==
-                              facility.openingHours!.length - 1;
+                              data.openingHours!.length - 1;
                           final entry = e.value;
                           final isClosed =
                               entry.value.toString().toLowerCase() == 'tutup';
@@ -333,7 +336,7 @@ class FacilityDetailScreen extends StatelessWidget {
                           icon: Icons.directions,
                           backgroundColor: const Color(0xFF1A73E8),
                           textColor: Colors.white,
-                          onPressed: () => _openMaps(facility),
+                          onPressed: () => _openMaps(data),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -346,7 +349,7 @@ class FacilityDetailScreen extends StatelessWidget {
                           backgroundColor: Colors.white,
                           textColor: const Color(0xFF1A73E8),
                           borderColor: const Color(0xFF1A73E8),
-                          onPressed: () => _openMapsSearch(facility),
+                          onPressed: () => _openMapsSearch(data),
                         ),
                       ),
                     ],

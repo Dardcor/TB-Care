@@ -4,11 +4,11 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../app/config/app_colors.dart';
 import '../../../app/config/app_text_styles.dart';
-import '../../../app/routes/app_routes.dart';
 import '../../../core/models/facility_model.dart';
 import '../../../core/widgets/loading_shimmer.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../controllers/facility_map_controller.dart';
+import 'facility_detail_screen.dart';
 
 class FacilityMapScreen extends GetView<FacilityMapController> {
   const FacilityMapScreen({super.key});
@@ -421,9 +421,9 @@ class _FacilityPreviewCard extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: () {
                           controller.clearSelectedFacility();
-                          Get.toNamed(
-                            AppRoutes.facilityDetail,
-                            arguments: facility,
+                          Get.to(
+                            () => FacilityDetailScreen(facility: facility),
+                            transition: Transition.rightToLeft,
                           );
                         },
                         icon: Icon(Icons.info_outline,
@@ -590,9 +590,9 @@ class _FacilityListSheet extends StatelessWidget {
                                 : null;
                         return GestureDetector(
                           onTap: () {
-                            Get.toNamed(
-                              AppRoutes.facilityDetail,
-                              arguments: facility,
+                            Get.to(
+                              () => FacilityDetailScreen(facility: facility),
+                              transition: Transition.rightToLeft,
                             );
                           },
                           child: Container(
