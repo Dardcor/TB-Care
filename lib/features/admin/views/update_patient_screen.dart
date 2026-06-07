@@ -23,7 +23,10 @@ class UpdatePatientScreen extends GetView<PatientDetailController> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Update Data Pasien'),
+        title: Text(
+          'Update Data Pasien',
+          style: AppTextStyles.titleMedium.copyWith(color: AppColors.white),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.white,
         elevation: 0,

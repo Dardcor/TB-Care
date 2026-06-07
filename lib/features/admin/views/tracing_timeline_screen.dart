@@ -16,9 +16,12 @@ class TracingTimelineScreen extends GetView<TracingController> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Pelacakan Mobilitas'),
+        title: Text(
+          'Pelacakan Mobilitas',
+          style: AppTextStyles.titleMedium.copyWith(color: AppColors.white),
+        ),
         backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.white,
         elevation: 0,
         actions: [
           // Indikator live update

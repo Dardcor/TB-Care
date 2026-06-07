@@ -14,7 +14,11 @@ class ArticleFormScreen extends GetView<ArticleFormController> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Input Artikel Baru'),
+        automaticallyImplyLeading: false,
+        title: Text(
+          'Input Artikel Baru',
+          style: AppTextStyles.titleMedium.copyWith(color: AppColors.white),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.white,
         elevation: 0,

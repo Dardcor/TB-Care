@@ -426,10 +426,18 @@ create table if not exists public.notifications (
     user_id uuid references public.profiles(id) on delete cascade,
     title text not null,
     message text not null,
-    type text not null, -- 'article', 'out_of_zone', 'info'
+    type text not null,
     is_read boolean default false,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Memastikan kolom user_id disuntikkan jika tabel sudah telanjur ada sebelumnya
+do $$
+begin
+    if not exists (select 1 from information_schema.columns where table_name='notifications' and column_name='user_id') then
+        alter table public.notifications add column user_id uuid references public.profiles(id) on delete cascade;
+    end if;
+end $$;
 
 alter table public.notifications enable row level security;
 

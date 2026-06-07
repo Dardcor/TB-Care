@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart' as geo;
 import '../models/facility_model.dart';
 import '../models/tracing_model.dart';
 import '../models/patient_model.dart';
@@ -11,6 +12,7 @@ class LocationService extends GetxService {
   StreamSubscription<Position>? _positionStream;
   PatientModel? _cachedPatient;
   DateTime? _lastUploadTime;
+  Position? _lastUploadedPosition;
 
   Future<LocationService> init() async {
     startPeriodicTracking();
@@ -101,7 +103,36 @@ class LocationService extends GetxService {
         _cachedPatient = patient;
       }
 
-      final placeName = 'Lat ${position.latitude.toStringAsFixed(5)}, Lng ${position.longitude.toStringAsFixed(5)}';
+      // ── Filter Jarak 100 Meter ──
+      // Jika pasien bergerak kurang dari 100 meter dari lokasi upload terakhir, 
+      // batalkan pengiriman agar tidak nyepam database.
+      if (_lastUploadedPosition != null) {
+        final distance = Geolocator.distanceBetween(
+          _lastUploadedPosition!.latitude,
+          _lastUploadedPosition!.longitude,
+          position.latitude,
+          position.longitude,
+        );
+        if (distance < 100) {
+          debugPrint('[LocationService] Bergeser hanya ${distance.toStringAsFixed(1)}m (<100m). Upload dibatalkan.');
+          return;
+        }
+      }
+
+      // ── Terjemahan Koordinat ke Alamat Jalan ──
+      String placeName = 'Lat ${position.latitude.toStringAsFixed(5)}, Lng ${position.longitude.toStringAsFixed(5)}';
+      try {
+        final placemarks = await geo.placemarkFromCoordinates(position.latitude, position.longitude);
+        if (placemarks.isNotEmpty) {
+          final place = placemarks.first;
+          // Menyusun format jalan: "Jl. Rungkut, Surabaya"
+          placeName = '${place.street ?? place.name}, ${place.subLocality ?? place.locality}';
+          // Bersihkan koma berlebih jika datanya tidak lengkap
+          placeName = placeName.replaceAll(RegExp(r'^,\s*'), '').replaceAll(RegExp(r',\s*$'), '');
+        }
+      } catch (_) {
+        // Jika gagal menerjemahkan alamat (misal koneksi putus), tetap gunakan Lat/Lng
+      }
 
       final log = TracingModel(
         id: '',
@@ -115,8 +146,12 @@ class LocationService extends GetxService {
       );
 
       await supabase.insertTracingLog(log);
+      
+      // Update cache tracking terakhir
       _lastUploadTime = DateTime.now();
-      debugPrint('[LocationService] ✅ Uploaded location (5-min interval): $placeName');
+      _lastUploadedPosition = position;
+      
+      debugPrint('[LocationService] ✅ Uploaded lokasi valid: $placeName');
 
       // Hapus log lebih dari 24 jam
       await supabase.deleteOldTracingLogs(_cachedPatient!.id);

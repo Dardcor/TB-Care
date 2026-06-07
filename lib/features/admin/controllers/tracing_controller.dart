@@ -9,6 +9,7 @@ import '../../../core/models/patient_model.dart';
 class StopPoint {
   final double latitude;
   final double longitude;
+  final String? placeName;
   final DateTime startTime;
   final DateTime endTime;
   final Duration duration;
@@ -16,6 +17,7 @@ class StopPoint {
   StopPoint({
     required this.latitude,
     required this.longitude,
+    this.placeName,
     required this.startTime,
     required this.endTime,
     required this.duration,
@@ -200,6 +202,7 @@ class TracingController extends GetxController {
       stops.add(StopPoint(
         latitude: cluster.first.latitude!,
         longitude: cluster.first.longitude!,
+        placeName: cluster.first.placeName,
         startTime: start,
         endTime: end,
         duration: duration,

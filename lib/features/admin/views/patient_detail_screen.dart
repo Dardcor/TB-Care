@@ -15,7 +15,10 @@ class PatientDetailScreen extends GetView<PatientDetailController> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Detail Pasien'),
+        title: Text(
+          'Detail Pasien',
+          style: AppTextStyles.titleMedium.copyWith(color: AppColors.white),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.white,
         elevation: 0,

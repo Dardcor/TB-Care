@@ -14,7 +14,10 @@ class NotificationScreen extends GetView<NotificationController> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Notifikasi'),
+        title: Text(
+          'Notifikasi',
+          style: AppTextStyles.titleMedium.copyWith(color: AppColors.white),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.white,
         actions: [

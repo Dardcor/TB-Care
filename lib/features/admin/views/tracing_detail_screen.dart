@@ -35,7 +35,10 @@ class TracingDetailScreen extends GetView<TracingController> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: Text(patient.fullName ?? 'Detail Tracing'),
+        title: Text(
+          patient.fullName ?? 'Detail Tracing',
+          style: AppTextStyles.titleMedium.copyWith(color: AppColors.white),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -338,16 +341,127 @@ class TracingDetailScreen extends GetView<TracingController> {
                                 color: Colors.grey.shade400, fontSize: 13)),
                       );
                     }
-                    // Tampilkan dari terbaru ke terlama
-                    final reversed = controller.patientTracingLogs.reversed.toList();
+                    
+                    final validLogs = controller.patientTracingLogs
+                        .where((l) => l.latitude != null && l.longitude != null)
+                        .toList()
+                      ..sort((a, b) => (a.visitedAt ?? DateTime(0)).compareTo(b.visitedAt ?? DateTime(0)));
+
+                    if (validLogs.isEmpty) return const SizedBox();
+
+                    // Bangun list event penting (Start, Stop Points, Current)
+                    final importantEvents = <Map<String, dynamic>>[];
+
+                    // 1. Titik Terkini (Dimasukkan pertama agar muncul paling atas di UI)
+                    final lastLog = validLogs.last;
+                    importantEvents.add({
+                      'title': '📍 Lokasi Terkini',
+                      'time': lastLog.visitedAt,
+                      'place': lastLog.placeName ?? 'Memproses alamat...',
+                      'color': AppColors.danger,
+                    });
+
+                    // 2. Titik Singgah (Dibalik urutannya agar yang terbaru di atas)
+                    final stopPoints = controller.getStopPoints(validLogs).reversed.toList();
+                    for (final stop in stopPoints) {
+                      importantEvents.add({
+                        'title': '🛑 Menetap ${stop.duration.inMinutes} Menit',
+                        'time': stop.endTime, 
+                        'place': stop.placeName ?? 'Memproses alamat...',
+                        'color': Colors.orange.shade700,
+                      });
+                    }
+
+                    // 3. Titik Awal
+                    final firstLog = validLogs.first;
+                    if (firstLog.id != lastLog.id) {
+                      importantEvents.add({
+                        'title': '🟢 Titik Awal (24 Jam)',
+                        'time': firstLog.visitedAt,
+                        'place': firstLog.placeName ?? 'Memproses alamat...',
+                        'color': AppColors.primary,
+                      });
+                    }
+
                     return ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      itemCount: reversed.length,
+                      itemCount: importantEvents.length,
                       itemBuilder: (context, index) {
-                        return _LogItem(
-                          log: reversed[index],
-                          index: reversed.length - index,
-                          isLatest: index == 0,
+                        final event = importantEvents[index];
+                        final isLatest = index == 0;
+                        final timeStr = event['time'] != null 
+                            ? DateFormat('HH:mm').format((event['time'] as DateTime).toLocal())
+                            : '--:--';
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Timeline indicator
+                            Column(
+                              children: [
+                                Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: event['color'],
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isLatest ? (event['color'] as Color).withOpacity(0.3) : Colors.transparent,
+                                      width: isLatest ? 4 : 0,
+                                    ),
+                                  ),
+                                ),
+                                if (index != importantEvents.length - 1)
+                                  Container(
+                                    width: 2,
+                                    height: 40,
+                                    color: Colors.grey.shade200,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(width: 12),
+                            // Log content
+                            Expanded(
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          event['title'],
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: isLatest ? FontWeight.w700 : FontWeight.w600,
+                                            color: isLatest ? const Color(0xFF1A1A2E) : Colors.grey.shade700,
+                                          ),
+                                        ),
+                                        Text(
+                                          timeStr,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: isLatest ? AppColors.primary : Colors.grey.shade500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      event['place'],
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         );
                       },
                     );
@@ -370,93 +484,5 @@ class TracingDetailScreen extends GetView<TracingController> {
       default:
         return const Color(0xFF2E7D32);
     }
-  }
-}
-
-class _LogItem extends StatelessWidget {
-  final TracingModel log;
-  final int index;
-  final bool isLatest;
-  const _LogItem(
-      {required this.log, required this.index, required this.isLatest});
-
-  @override
-  Widget build(BuildContext context) {
-    final dotColor = isLatest ? Colors.red : AppColors.primary;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Timeline dot
-          Column(
-            children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: dotColor.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: dotColor.withOpacity(0.4)),
-                ),
-                child: Center(
-                  child: isLatest
-                      ? Icon(Icons.my_location, size: 13, color: dotColor)
-                      : Text(
-                          '$index',
-                          style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: dotColor),
-                        ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: isLatest
-                    ? Colors.red.shade50
-                    : const Color(0xFFF8FAFF),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isLatest
-                      ? Colors.red.shade100
-                      : Colors.grey.shade100,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      log.placeName ?? 'Lokasi tidak diketahui',
-                      style: const TextStyle(
-                          fontSize: 12.5,
-                          color: Color(0xFF333333),
-                          fontWeight: FontWeight.w500),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (log.visitedAt != null) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      DateFormat('HH:mm:ss')
-                          .format(log.visitedAt!.toLocal()),
-                      style: TextStyle(
-                          fontSize: 11, color: Colors.grey.shade500),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
