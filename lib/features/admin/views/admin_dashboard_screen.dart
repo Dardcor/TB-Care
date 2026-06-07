@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/models/tracing_model.dart';
+import '../../../core/models/patient_model.dart';
 import '../../../app/config/app_colors.dart';
 import '../../../app/config/app_text_styles.dart';
 import '../../../app/routes/app_routes.dart';
@@ -224,8 +225,16 @@ class AdminDashboardScreen extends GetView<AdminDashboardController> {
           }
 
           return Column(
-            children: controller.recentTracing.take(2).map((tracing) {
-              return _buildTracingCard(tracing.placeName ?? 'Unknown Location', tracing: tracing);
+            children: controller.recentTracing.take(3).map((tracing) {
+              final patient = controller.patients.firstWhereOrNull((p) => p.id == tracing.patientId);
+              final patientIdStr = tracing.patientId;
+              final patientName = patient?.fullName ??
+                  'Pasien (ID: ${patientIdStr != null && patientIdStr.length >= 8 ? patientIdStr.substring(0, 8) : '?'})';
+              return _buildTracingCard(
+                patientName: patientName,
+                location: tracing.placeName ?? 'Lokasi tidak diketahui',
+                patient: patient,
+              );
             }).toList(),
           );
         }),
@@ -233,7 +242,11 @@ class AdminDashboardScreen extends GetView<AdminDashboardController> {
     );
   }
 
-  Widget _buildTracingCard(String location, {TracingModel? tracing}) {
+  Widget _buildTracingCard({
+    required String patientName,
+    required String location,
+    required PatientModel? patient,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -251,37 +264,58 @@ class AdminDashboardScreen extends GetView<AdminDashboardController> {
               shape: BoxShape.circle,
             ),
             child: const Icon(
-              Icons.route_outlined,
+              Icons.person_search_outlined,
               color: AppColors.textPrimary,
               size: 24,
             ),
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.location_on_outlined,
-                  size: 16,
-                  color: AppColors.textPrimary,
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    location,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                Text(
+                  patientName,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        location,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           OutlinedButton(
             onPressed: () {
-              if (tracing != null) {
-                Get.toNamed(AppRoutes.tracingDetail, arguments: tracing);
+              if (patient != null) {
+                Get.toNamed(AppRoutes.tracingDetail, arguments: patient);
+              } else {
+                Get.snackbar(
+                  'Info',
+                  'Gagal memuat detail pasien. Silakan coba beberapa saat lagi.',
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: Colors.orange.shade100,
+                  colorText: Colors.black,
+                );
               }
             },
             style: OutlinedButton.styleFrom(

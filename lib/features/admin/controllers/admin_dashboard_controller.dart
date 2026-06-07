@@ -47,33 +47,49 @@ class AdminDashboardController extends GetxController {
 
     try {
       final user = _supabase.currentUser;
+      String? officerId;
+
       if (user != null) {
+        officerId = user.id;
         final profile = await _supabase.getProfile(user.id);
         if (profile != null && profile.fullName.isNotEmpty) {
           adminName.value = profile.fullName;
         }
       }
 
-      final results = await Future.wait([
-        _supabase.countActivePatients(),
-        _supabase.countPatientsByZone('merah'),
-        _supabase.countPatientsByZone('kuning'),
-        _supabase.countPatientsByZone('hijau'),
-        _supabase.getRecentTracingLogs(days: 7),
-        _supabase.getActivePatients(),
-      ]);
+      // Load patients scoped to this officer's facility
+      final List<PatientModel> officerPatients = officerId != null
+          ? await _supabase.getActivePatientsForOfficer(officerId)
+          : await _supabase.getActivePatients();
 
-      activePatients.value = results[0] as int;
-      redZoneCount.value = results[1] as int;
-      yellowZoneCount.value = results[2] as int;
-      greenZoneCount.value = results[3] as int;
-
-      final tracingList = results[4] as List<TracingModel>;
-      recentTracing.assignAll(tracingList);
-      activeTracingCount.value = tracingList.length;
-
-      patients.assignAll(results[5] as List<PatientModel>);
+      patients.assignAll(officerPatients);
+      activePatients.value = officerPatients.length;
       _buildPreviewMarkers();
+
+      // Zone counts from officer's patients only
+      final redDistricts = officerPatients
+          .where((p) => p.zone == 'merah' && p.district != null && p.district!.trim().isNotEmpty)
+          .map((p) => p.district!.trim().toLowerCase())
+          .toSet();
+      redZoneCount.value = redDistricts.length;
+      yellowZoneCount.value = officerPatients.where((p) => p.zone == 'kuning').length;
+      greenZoneCount.value = officerPatients.where((p) => p.zone == 'hijau').length;
+
+      // Load recent tracing logs only for this officer's patients
+      final patientIds = officerPatients.map((p) => p.id).toList();
+      final tracingList = await _supabase.getRecentTracingLogsForPatients(patientIds);
+
+      // Deduplicate: one entry per patient, keeping the most recent first
+      final uniqueTracings = <TracingModel>[];
+      final seenPatients = <String>{};
+      for (final t in tracingList) {
+        if (t.patientId != null && !seenPatients.contains(t.patientId)) {
+          seenPatients.add(t.patientId!);
+          uniqueTracings.add(t);
+        }
+      }
+      recentTracing.assignAll(uniqueTracings);
+      activeTracingCount.value = uniqueTracings.length;
     } catch (e) {
       debugPrint('[AdminDashboardController] loadData error: $e');
       hasError.value = true;
