@@ -79,9 +79,8 @@ class TracingTimelineScreen extends GetView<TracingController> {
         if (controller.trackedPatients.isEmpty) {
           return const EmptyState(
             icon: Icons.location_off_outlined,
-            title: 'Belum ada pasien yang dilacak',
-            subtitle:
-                'Pasien yang telah menyetujui akses lokasi GPS akan tampil di sini',
+            title: 'Belum ada pasien yang terdaftar',
+            subtitle: 'Pasien yang Anda daftarkan akan tampil di sini',
           );
         }
 

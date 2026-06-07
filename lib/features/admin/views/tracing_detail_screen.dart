@@ -23,6 +23,13 @@ class TracingDetailScreen extends GetView<TracingController> {
       );
     }
 
+    // Trigger log loading whenever we arrive at this screen for a patient
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (controller.selectedPatient.value?.id != patient.id) {
+        controller.selectPatient(patient);
+      }
+    });
+
     final zoneColor = _zoneColor(patient.zone);
 
     return Scaffold(

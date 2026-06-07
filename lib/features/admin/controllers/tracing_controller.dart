@@ -43,12 +43,15 @@ class TracingController extends GetxController {
     super.onClose();
   }
 
-  // ── Load daftar pasien yang sudah acc GPS ───────────────────────────────
+  // ── Load daftar pasien di fasilitas petugas ini ─────────────────────────
   Future<void> _loadPatients() async {
     if (!isLoading.value) isLoading.value = true;
     hasError.value = false;
     try {
-      final patients = await _supabase.getPatientsWithGpsConsent();
+      final officerId = _supabase.currentUser?.id;
+      final patients = officerId != null
+          ? await _supabase.getTrackedPatientsForOfficer(officerId)
+          : await _supabase.getPatientsWithGpsConsent();
       trackedPatients.assignAll(patients);
 
       // Isi tracingLogs dengan log terbaru dari semua pasien (untuk timeline view)
@@ -63,6 +66,7 @@ class TracingController extends GetxController {
       isLoading.value = false;
     }
   }
+
 
   // ── Load semua log untuk pasien tertentu ────────────────────────────────
   Future<void> _loadPatientLogs(String patientId) async {
@@ -116,6 +120,18 @@ class TracingController extends GetxController {
     } catch (_) {
       return null;
     }
+  }
+
+  List<PatientModel> get patientsTrackedToday {
+    final now = DateTime.now();
+    return trackedPatients.where((patient) {
+      final log = latestLogFor(patient.id);
+      if (log == null || log.visitedAt == null) return false;
+      final localVisited = log.visitedAt!.toLocal();
+      return localVisited.year == now.year &&
+             localVisited.month == now.month &&
+             localVisited.day == now.day;
+    }).toList();
   }
 
   Future<void> refresh() async {
