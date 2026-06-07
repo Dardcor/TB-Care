@@ -55,6 +55,26 @@ class SupabaseService extends GetxService {
     await _client.auth.signOut();
   }
 
+  Future<void> updatePassword(String newPassword) async {
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
+  Future<bool> updateEmail(String newEmail) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('Sesi tidak valid');
+    
+    bool authUpdated = false;
+    try {
+      await _client.auth.updateUser(UserAttributes(email: newEmail));
+      authUpdated = true;
+    } catch (e) {
+      debugPrint('[SupabaseService] Auth email update failed: $e');
+    }
+    
+    await _client.from(SupabaseConfig.profilesTable).update({'email': newEmail}).eq('id', userId);
+    return authUpdated;
+  }
+
   // ─── Profiles ──────────────────────────────────────────
 
   Future<UserModel?> getProfile(String userId) async {
@@ -116,6 +136,54 @@ class SupabaseService extends GetxService {
       return data.map((e) => PatientModel.fromJson(e)).toList();
     } catch (e) {
       debugPrint('[SupabaseService] getActivePatients error: $e');
+      return [];
+    }
+  }
+
+  /// Returns all active patients registered by the given officer.
+  Future<List<PatientModel>> getActivePatientsForOfficer(String officerId) async {
+    try {
+      final data = await _client
+          .from(SupabaseConfig.patientsTable)
+          .select()
+          .eq('is_active', true)
+          .eq('created_by', officerId)
+          .order('created_at', ascending: false);
+      return data.map((e) => PatientModel.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('[SupabaseService] getActivePatientsForOfficer error: $e. Trying fallback by facility.');
+      try {
+        final profile = await getProfile(officerId);
+        final facilityName = profile?.facilityName;
+        if (facilityName != null && facilityName.isNotEmpty) {
+          final data = await _client
+              .from(SupabaseConfig.patientsTable)
+              .select()
+              .eq('is_active', true)
+              .eq('facility_name', facilityName)
+              .order('created_at', ascending: false);
+          return data.map((e) => PatientModel.fromJson(e)).toList();
+        }
+      } catch (innerError) {
+        debugPrint('[SupabaseService] getActivePatientsForOfficer fallback error: $innerError');
+      }
+      return getActivePatients();
+    }
+  }
+
+  /// Returns recent tracing logs for a specific set of patient IDs.
+  Future<List<TracingModel>> getRecentTracingLogsForPatients(
+      List<String> patientIds) async {
+    if (patientIds.isEmpty) return [];
+    try {
+      final data = await _client
+          .from(SupabaseConfig.tracingLogsTable)
+          .select()
+          .inFilter('patient_id', patientIds)
+          .order('created_at', ascending: false);
+      return data.map((e) => TracingModel.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('[SupabaseService] getRecentTracingLogsForPatients error: $e');
       return [];
     }
   }
@@ -316,6 +384,37 @@ class SupabaseService extends GetxService {
     } catch (e) {
       debugPrint('[SupabaseService] getPatientsWithGpsConsent error: $e');
       return [];
+    }
+  }
+
+  /// Returns patients registered by this officer.
+  Future<List<PatientModel>> getTrackedPatientsForOfficer(String officerId) async {
+    try {
+      final data = await _client
+          .from(SupabaseConfig.patientsTable)
+          .select()
+          .eq('is_active', true)
+          .eq('created_by', officerId)
+          .order('full_name');
+      return data.map((e) => PatientModel.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('[SupabaseService] getTrackedPatientsForOfficer error: $e. Trying fallback by facility.');
+      try {
+        final profile = await getProfile(officerId);
+        final facilityName = profile?.facilityName;
+        if (facilityName != null && facilityName.isNotEmpty) {
+          final data = await _client
+              .from(SupabaseConfig.patientsTable)
+              .select()
+              .eq('is_active', true)
+              .eq('facility_name', facilityName)
+              .order('full_name');
+          return data.map((e) => PatientModel.fromJson(e)).toList();
+        }
+      } catch (innerError) {
+        debugPrint('[SupabaseService] getTrackedPatientsForOfficer fallback error: $innerError');
+      }
+      return getPatientsWithGpsConsent();
     }
   }
 
@@ -786,6 +885,68 @@ class SupabaseService extends GetxService {
       });
     } catch (e) {
       debugPrint('[SupabaseService] createBroadcastNotification error: $e');
+    }
+  }
+
+  Future<void> sendNotification({
+    required String patientId,
+    required String sentBy,
+    required String title,
+    required String message,
+  }) async {
+    try {
+      final patientData = await _client
+          .from(SupabaseConfig.patientsTable)
+          .select('profile_id')
+          .eq('id', patientId)
+          .maybeSingle();
+
+      final profileId = patientData?['profile_id'] as String?;
+      if (profileId == null) {
+        throw Exception('Patient profile not found');
+      }
+
+      await _client.from('notifications').insert({
+        'user_id': profileId,
+        'title': title,
+        'message': message,
+        'type': 'pesan',
+        'is_read': false,
+      });
+    } catch (e) {
+      debugPrint('[SupabaseService] sendNotification error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> logIntervention({
+    required String adminId,
+    required String patientId,
+    required String type,
+    String? zoneMarked,
+    required String notes,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'admin_id': adminId,
+        'type': type,
+        'notes': notes,
+      };
+
+      if (patientId.isNotEmpty) {
+        data['patient_id'] = patientId;
+      } else {
+        data['patient_id'] = null;
+      }
+
+      if (zoneMarked != null) {
+        data['zone_marked'] = zoneMarked;
+      }
+
+      await _client.from('interventions').insert(data);
+    } catch (e) {
+      debugPrint('[SupabaseService] logIntervention error: $e');
+      rethrow;
     }
   }
 }
