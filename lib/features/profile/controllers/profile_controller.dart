@@ -17,10 +17,32 @@ class ProfileController extends GetxController {
   final gpsConsent = false.obs;
   final isUpdatingConsent = false.obs;
 
+  // Edit Profil & Security Controllers
+  final fullNameEditController = TextEditingController();
+  final emailEditController = TextEditingController();
+  final phoneEditController = TextEditingController();
+  final oldPasswordEditController = TextEditingController();
+  final passwordEditController = TextEditingController();
+  final confirmPasswordEditController = TextEditingController();
+
+  final isChangingPassword = false.obs;
+  final isUpdatingProfile = false.obs;
+
   @override
   void onInit() {
     super.onInit();
     loadProfile();
+  }
+
+  @override
+  void onClose() {
+    fullNameEditController.dispose();
+    emailEditController.dispose();
+    phoneEditController.dispose();
+    oldPasswordEditController.dispose();
+    passwordEditController.dispose();
+    confirmPasswordEditController.dispose();
+    super.onClose();
   }
 
   Future<void> loadProfile() async {
@@ -30,6 +52,11 @@ class ProfileController extends GetxController {
       if (user != null) {
         final profile = await _supabase.getProfile(user.id);
         userProfile.value = profile;
+        if (profile != null) {
+          fullNameEditController.text = profile.fullName;
+          emailEditController.text = profile.email;
+          phoneEditController.text = profile.phone;
+        }
         if (profile?.role == 'patient' || profile?.role == 'pasien') {
           final patient = await _supabase.getPatientByProfileId(user.id);
           patientData.value = patient;
@@ -42,6 +69,166 @@ class ProfileController extends GetxController {
       Get.snackbar('Error', 'Gagal memuat profil: ${e.toString()}');
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Future<void> updateProfile() async {
+    final newEmail = emailEditController.text.trim();
+    final newPhone = phoneEditController.text.trim();
+
+    if (newEmail.isEmpty) {
+      Get.snackbar('Gagal', 'Email tidak boleh kosong',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+      return;
+    }
+
+    if (!GetUtils.isEmail(newEmail)) {
+      Get.snackbar('Gagal', 'Format email tidak valid',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+      return;
+    }
+
+    if (newPhone.isEmpty) {
+      Get.snackbar('Gagal', 'Nomor telepon tidak boleh kosong',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+      return;
+    }
+
+    isUpdatingProfile.value = true;
+    try {
+      final userId = _supabase.client.auth.currentUser?.id;
+      if (userId == null) throw Exception('Sesi tidak valid');
+
+      final currentEmail = _supabase.client.auth.currentUser?.email;
+      bool emailChanged = newEmail.toLowerCase() != currentEmail?.toLowerCase();
+
+      if (emailChanged) {
+        // Update auth email dan email di tabel profiles
+        await _supabase.updateEmail(newEmail);
+      }
+
+      // Update phone di tabel profiles
+      await _supabase.client
+          .from('profiles')
+          .update({
+            'phone': newPhone,
+          })
+          .eq('id', userId);
+
+      if (emailChanged) {
+        Get.back(); // Tutup bottom sheet
+        await logout(); // Logout dan redirect ke role selection / login
+        
+        Get.snackbar(
+          'Email Diubah',
+          'Email berhasil diperbarui. Silakan verifikasi email baru Anda terlebih dahulu (jika diperlukan) lalu masuk kembali menggunakan email baru.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green.shade100,
+          colorText: Colors.black,
+          duration: const Duration(seconds: 8),
+        );
+      } else {
+        await loadProfile();
+        Get.back(); // Tutup bottom sheet
+        Get.snackbar(
+          'Berhasil',
+          'Profil berhasil diperbarui.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green.shade100,
+          colorText: Colors.black,
+        );
+      }
+    } catch (e) {
+      Get.snackbar('Gagal', e.toString().replaceAll('Exception:', '').trim(),
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+    } finally {
+      isUpdatingProfile.value = false;
+    }
+  }
+
+  Future<void> changePassword() async {
+    final oldPassword = oldPasswordEditController.text.trim();
+    final newPassword = passwordEditController.text.trim();
+    final confirmPassword = confirmPasswordEditController.text.trim();
+
+    if (oldPassword.isEmpty) {
+      Get.snackbar('Gagal', 'Kata sandi lama tidak boleh kosong',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+      return;
+    }
+
+    if (newPassword.isEmpty) {
+      Get.snackbar('Gagal', 'Kata sandi baru tidak boleh kosong',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Get.snackbar('Gagal', 'Kata sandi minimal 6 karakter',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
+      Get.snackbar('Gagal', 'Konfirmasi kata sandi tidak cocok',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+      return;
+    }
+
+    isChangingPassword.value = true;
+    try {
+      final user = _supabase.client.auth.currentUser;
+      final emailVal = user?.email;
+      if (emailVal == null) {
+        throw Exception('Sesi pengguna tidak valid. Silakan masuk kembali.');
+      }
+
+      // Verifikasi kata sandi lama dengan melakukan sign-in ulang
+      try {
+        await _supabase.signIn(email: emailVal, password: oldPassword);
+      } catch (e) {
+        throw Exception('Kata sandi lama yang Anda masukkan salah.');
+      }
+
+      // Update password baru
+      await _supabase.updatePassword(newPassword);
+
+      // Reset form
+      oldPasswordEditController.clear();
+      passwordEditController.clear();
+      confirmPasswordEditController.clear();
+      
+      Get.back(); // Tutup bottom sheet ganti password
+      await logout();
+
+      Get.snackbar('Berhasil', 'Kata sandi berhasil diubah. Silakan masuk kembali.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green.shade100,
+          colorText: Colors.black,
+          duration: const Duration(seconds: 5));
+    } catch (e) {
+      Get.snackbar('Gagal', e.toString().replaceAll('Exception:', '').trim(),
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+    } finally {
+      isChangingPassword.value = false;
     }
   }
 
@@ -124,5 +311,4 @@ class ProfileController extends GetxController {
       Get.snackbar('Error', 'Gagal logout: ${e.toString()}');
     }
   }
-}
 }

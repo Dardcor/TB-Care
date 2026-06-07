@@ -216,39 +216,9 @@ class AdminProfileScreen extends GetView<AdminProfileController> {
       child: Column(
         children: [
           _buildMenuItem(
-            icon: Icons.edit_outlined,
-            title: 'Ubah Profil Petugas',
-            onTap: () => _showEditProfileBottomSheet(context),
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          _buildMenuItem(
-            icon: Icons.article_outlined,
-            title: 'Input Artikel Baru',
-            onTap: () => Get.toNamed(AppRoutes.articleForm),
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          _buildMenuItem(
-            icon: Icons.notifications_active_outlined,
-            title: 'Pengaturan Notifikasi',
-            onTap: () => Get.snackbar('Info', 'Fitur belum tersedia'),
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          _buildMenuItem(
             icon: Icons.lock_outline,
             title: 'Ganti Kata Sandi',
-            onTap: () => Get.snackbar('Info', 'Fitur belum tersedia'),
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          _buildMenuItem(
-            icon: Icons.menu_book_outlined,
-            title: 'Panduan Penggunaan',
-            onTap: () => Get.snackbar('Info', 'Fitur belum tersedia'),
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          _buildMenuItem(
-            icon: Icons.headset_mic_outlined,
-            title: 'Pusat Bantuan',
-            onTap: () => Get.snackbar('Info', 'Fitur belum tersedia'),
+            onTap: () => _showChangePasswordBottomSheet(context),
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
           _buildMenuItem(
@@ -260,6 +230,104 @@ class AdminProfileScreen extends GetView<AdminProfileController> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showChangePasswordBottomSheet(BuildContext context) {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Ganti Kata Sandi',
+                    style: AppTextStyles.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Get.back(),
+                  ),
+                ],
+              ),
+              const Divider(height: 20),
+              
+              // KATA SANDI LAMA
+              Text('Kata Sandi Lama', style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller.oldPasswordEditController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  hintText: 'Masukkan kata sandi lama',
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // KATA SANDI BARU
+              Text('Kata Sandi Baru', style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller.passwordEditController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  hintText: 'Minimal 6 karakter',
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // KONFIRMASI KATA SANDI BARU
+              Text('Konfirmasi Kata Sandi Baru', style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller.confirmPasswordEditController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  hintText: 'Ulangi kata sandi baru',
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // SAVE BUTTON
+              SizedBox(
+                width: double.infinity,
+                child: Obx(() => ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: controller.isChangingPassword.value ? null : () => controller.changePassword(),
+                  child: controller.isChangingPassword.value
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text('GANTI KATA SANDI', style: TextStyle(fontWeight: FontWeight.bold)),
+                )),
+              ),
+            ],
+          ),
+        ),
+      ),
+      isScrollControlled: true,
     );
   }
 

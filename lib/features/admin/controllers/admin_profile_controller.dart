@@ -24,6 +24,12 @@ class AdminProfileController extends GetxController {
   final selectedFacility = Rx<String?>(null);
   final isUpdating = false.obs;
 
+  // Change Password controllers
+  final oldPasswordEditController = TextEditingController();
+  final passwordEditController = TextEditingController();
+  final confirmPasswordEditController = TextEditingController();
+  final isChangingPassword = false.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -37,6 +43,9 @@ class AdminProfileController extends GetxController {
     phoneEditController.dispose();
     nipEditController.dispose();
     facilityEditController.dispose();
+    oldPasswordEditController.dispose();
+    passwordEditController.dispose();
+    confirmPasswordEditController.dispose();
     super.onClose();
   }
 
@@ -143,5 +152,86 @@ class AdminProfileController extends GetxController {
   Future<void> logout() async {
     await _supabase.signOut();
     Get.offAllNamed(AppRoutes.roleSelection);
+  }
+
+  Future<void> changePassword() async {
+    final oldPassword = oldPasswordEditController.text.trim();
+    final newPassword = passwordEditController.text.trim();
+    final confirmPassword = confirmPasswordEditController.text.trim();
+
+    if (oldPassword.isEmpty) {
+      Get.snackbar('Gagal', 'Kata sandi lama tidak boleh kosong',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+      return;
+    }
+
+    if (newPassword.isEmpty) {
+      Get.snackbar('Gagal', 'Kata sandi baru tidak boleh kosong',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Get.snackbar('Gagal', 'Kata sandi minimal 6 karakter',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
+      Get.snackbar('Gagal', 'Konfirmasi kata sandi tidak cocok',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+      return;
+    }
+
+    isChangingPassword.value = true;
+    try {
+      final user = _supabase.currentUser;
+      final emailVal = user?.email;
+      if (emailVal == null) {
+        throw Exception('Sesi pengguna tidak valid. Silakan masuk kembali.');
+      }
+
+      // Verifikasi kata sandi lama dengan melakukan sign-in ulang
+      try {
+        await _supabase.signIn(email: emailVal, password: oldPassword);
+      } catch (e) {
+        throw Exception('Kata sandi lama yang Anda masukkan salah.');
+      }
+
+      // Update password baru
+      await _supabase.updatePassword(newPassword);
+
+      // Reset form
+      oldPasswordEditController.clear();
+      passwordEditController.clear();
+      confirmPasswordEditController.clear();
+      
+      Get.back(); // Tutup bottom sheet ganti password
+
+      // Sign out dan redirect ke login
+      await _supabase.signOut();
+      Get.offAllNamed(AppRoutes.roleSelection);
+
+      Get.snackbar('Berhasil', 'Kata sandi berhasil diubah. Silakan masuk kembali.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green.shade100,
+          colorText: Colors.black,
+          duration: const Duration(seconds: 5));
+    } catch (e) {
+      Get.snackbar('Gagal', e.toString().replaceAll('Exception:', '').trim(),
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black);
+    } finally {
+      isChangingPassword.value = false;
+    }
   }
 }

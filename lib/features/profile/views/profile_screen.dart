@@ -26,7 +26,7 @@ class ProfileScreen extends GetView<ProfileController> {
             children: [
               _buildHeader(profile, patient),
               const SizedBox(height: 24),
-              _buildMenuSection(),
+              _buildMenuSection(context),
             ],
           ),
         );
@@ -118,7 +118,7 @@ class ProfileScreen extends GetView<ProfileController> {
     );
   }
 
-  Widget _buildMenuSection() {
+  Widget _buildMenuSection(BuildContext context) {
     return AppCard(
       padding: EdgeInsets.zero,
       child: Column(
@@ -126,25 +126,13 @@ class ProfileScreen extends GetView<ProfileController> {
           _buildMenuItem(
             icon: Icons.person_outline,
             title: 'Edit Profil',
-            onTap: () => Get.snackbar('Info', 'Fitur belum tersedia'),
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          _buildMenuItem(
-            icon: Icons.notifications_active_outlined,
-            title: 'Pengaturan Notifikasi',
-            onTap: () => Get.snackbar('Info', 'Fitur belum tersedia'),
+            onTap: () => _showEditProfileBottomSheet(context),
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
           _buildMenuItem(
             icon: Icons.lock_outline,
-            title: 'Keamanan Akun',
-            onTap: () => Get.snackbar('Info', 'Fitur belum tersedia'),
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          _buildMenuItem(
-            icon: Icons.help_outline,
-            title: 'Bantuan & Dukungan',
-            onTap: () => Get.snackbar('Info', 'Fitur belum tersedia'),
+            title: 'Ganti Kata Sandi',
+            onTap: () => _showChangePasswordBottomSheet(context),
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
           // GPS Tracking Switch
@@ -224,6 +212,212 @@ class ProfileScreen extends GetView<ProfileController> {
         if (Get.isSnackbarOpen) return;
         onTap();
       },
+    );
+  }
+
+  void _showEditProfileBottomSheet(BuildContext context) {
+    Get.bottomSheet(
+      Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Ubah Profil',
+                      style: AppTextStyles.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Get.back(),
+                    ),
+                  ],
+                ),
+                const Divider(height: 20),
+
+                // NAMA LENGKAP (Disabled / Tidak bisa diubah)
+                Text('Nama Lengkap', style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600, color: Colors.grey)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: controller.fullNameEditController,
+                  enabled: false,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.person_outline, color: Colors.grey),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    fillColor: Colors.grey.shade100,
+                    filled: true,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // ALAMAT EMAIL (Editable)
+                Text('Alamat Email', style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: controller.emailEditController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    hintText: 'Masukkan alamat email baru',
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // NOMOR TELEPON (Editable)
+                Text('Nomor Telepon', style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: controller.phoneEditController,
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    hintText: 'Masukkan nomor telepon baru',
+                    prefixIcon: const Icon(Icons.phone_outlined),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // SAVE BUTTON
+                SizedBox(
+                  width: double.infinity,
+                  child: Obx(() => ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: controller.isUpdatingProfile.value ? null : () => controller.updateProfile(),
+                    child: controller.isUpdatingProfile.value
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Text('SIMPAN PERUBAHAN', style: TextStyle(fontWeight: FontWeight.bold)),
+                  )),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  void _showChangePasswordBottomSheet(BuildContext context) {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Ganti Kata Sandi',
+                    style: AppTextStyles.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Get.back(),
+                  ),
+                ],
+              ),
+              const Divider(height: 20),
+              
+              // KATA SANDI LAMA
+              Text('Kata Sandi Lama', style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller.oldPasswordEditController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  hintText: 'Masukkan kata sandi lama',
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // KATA SANDI BARU
+              Text('Kata Sandi Baru', style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller.passwordEditController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  hintText: 'Minimal 6 karakter',
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // KONFIRMASI KATA SANDI BARU
+              Text('Konfirmasi Kata Sandi Baru', style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller.confirmPasswordEditController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  hintText: 'Ulangi kata sandi baru',
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // SAVE BUTTON
+              SizedBox(
+                width: double.infinity,
+                child: Obx(() => ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: controller.isChangingPassword.value ? null : () => controller.changePassword(),
+                  child: controller.isChangingPassword.value
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text('GANTI KATA SANDI', style: TextStyle(fontWeight: FontWeight.bold)),
+                )),
+              ),
+            ],
+          ),
+        ),
+      ),
+      isScrollControlled: true,
     );
   }
 
