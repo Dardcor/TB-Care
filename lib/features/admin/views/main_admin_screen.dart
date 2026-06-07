@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../app/config/app_colors.dart';
 import '../controllers/main_admin_controller.dart';
@@ -11,9 +12,44 @@ import 'admin_profile_screen.dart';
 class MainAdminScreen extends GetView<MainAdminController> {
   const MainAdminScreen({super.key});
 
+  Future<void> _showExitDialog(BuildContext context) async {
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Keluar Aplikasi', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('Apakah Anda yakin ingin keluar dari Tuberku?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Keluar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldExit == true) {
+      SystemNavigator.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        _showExitDialog(context);
+      },
+      child: Scaffold(
       backgroundColor: AppColors.background,
       body: Obx(
         () => IndexedStack(
@@ -65,6 +101,7 @@ class MainAdminScreen extends GetView<MainAdminController> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

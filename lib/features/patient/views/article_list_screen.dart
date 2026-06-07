@@ -43,15 +43,17 @@ class ArticleListScreen extends GetView<ArticleController> {
           // Filter chips
           SizedBox(
             height: 40,
-            child: Obx(() => ListView.separated(
+            child: Obx(() {
+              // Mendaftarkan dependency di luar itemBuilder agar Obx bereaksi
+              final currentFilter = controller.selectedFilter.value;
+              return ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   scrollDirection: Axis.horizontal,
                   itemCount: controller.filters.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (context, index) {
                     final filter = controller.filters[index];
-                    final isSelected =
-                        controller.selectedFilter.value == filter;
+                    final isSelected = currentFilter == filter;
                     return FilterChip(
                       label: Text(filter),
                       selected: isSelected,
@@ -74,7 +76,8 @@ class ArticleListScreen extends GetView<ArticleController> {
                       ),
                     );
                   },
-                )),
+                );
+            }),
           ),
           const SizedBox(height: 12),
           // Article list

@@ -1,9 +1,26 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/models/tracing_model.dart';
 import '../../../core/models/patient_model.dart';
+
+class StopPoint {
+  final double latitude;
+  final double longitude;
+  final DateTime startTime;
+  final DateTime endTime;
+  final Duration duration;
+
+  StopPoint({
+    required this.latitude,
+    required this.longitude,
+    required this.startTime,
+    required this.endTime,
+    required this.duration,
+  });
+}
 
 class TracingController extends GetxController {
   final _supabase = Get.find<SupabaseService>();
@@ -136,5 +153,57 @@ class TracingController extends GetxController {
 
   Future<void> refresh() async {
     await _loadPatients();
+  }
+
+  // ── Algoritma Stop Detection (Deteksi Menetap > 15 Menit) ───────────────
+  List<StopPoint> getStopPoints(List<TracingModel> logs) {
+    if (logs.isEmpty) return [];
+
+    final validLogs = logs.where((l) => l.latitude != null && l.longitude != null).toList();
+    if (validLogs.isEmpty) return [];
+    
+    // Urutkan dari yang terlama ke terbaru
+    validLogs.sort((a, b) => (a.visitedAt ?? DateTime(0)).compareTo(b.visitedAt ?? DateTime(0)));
+
+    final stops = <StopPoint>[];
+    List<TracingModel> currentCluster = [validLogs.first];
+
+    for (int i = 1; i < validLogs.length; i++) {
+      final log = validLogs[i];
+      final clusterCenter = currentCluster.first;
+      
+      final distance = Geolocator.distanceBetween(
+        clusterCenter.latitude!, clusterCenter.longitude!,
+        log.latitude!, log.longitude!,
+      );
+
+      // Radius toleransi GPS 50 meter
+      if (distance <= 50) { 
+        currentCluster.add(log);
+      } else {
+        _checkAndAddCluster(currentCluster, stops);
+        currentCluster = [log];
+      }
+    }
+
+    _checkAndAddCluster(currentCluster, stops);
+    return stops;
+  }
+
+  void _checkAndAddCluster(List<TracingModel> cluster, List<StopPoint> stops) {
+    if (cluster.isEmpty) return;
+    final start = cluster.first.visitedAt ?? DateTime.now();
+    final end = cluster.last.visitedAt ?? start;
+    final duration = end.difference(start);
+    
+    if (duration.inMinutes >= 15) {
+      stops.add(StopPoint(
+        latitude: cluster.first.latitude!,
+        longitude: cluster.first.longitude!,
+        startTime: start,
+        endTime: end,
+        duration: duration,
+      ));
+    }
   }
 }

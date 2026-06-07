@@ -8,8 +8,9 @@ import '../models/patient_model.dart';
 import 'supabase_service.dart';
 
 class LocationService extends GetxService {
-  Timer? _trackingTimer;
+  StreamSubscription<Position>? _positionStream;
   PatientModel? _cachedPatient;
+  DateTime? _lastUploadTime;
 
   Future<LocationService> init() async {
     startPeriodicTracking();
@@ -22,16 +23,53 @@ class LocationService extends GetxService {
     super.onClose();
   }
 
-  void startPeriodicTracking() {
-    _trackingTimer?.cancel();
-    _trackingTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
-      await _trackAndUploadLocation();
+  Future<void> startPeriodicTracking() async {
+    final hasPermission = await requestPermission();
+    if (!hasPermission) return;
+
+    _positionStream?.cancel();
+
+    // Konfigurasi Foreground Service agar jalan 24 jam di background
+    late LocationSettings locationSettings;
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      locationSettings = AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10, // Update jika bergerak 10 meter
+        forceLocationManager: true,
+        // intervalDuration: const Duration(minutes: 5), // Not all versions support this, we handle via manual throttle
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationText: 'Tuberku memantau lokasi karantina Anda di latar belakang.',
+          notificationTitle: 'Pelacakan Aktif',
+          enableWakeLock: true,
+        ),
+      );
+    } else {
+      locationSettings = const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+      );
+    }
+
+    _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings).listen((Position? position) async {
+      if (position == null) return;
+      
+      // Throttle upload to every 5 minutes (300 seconds)
+      final now = DateTime.now();
+      if (_lastUploadTime != null) {
+        final diff = now.difference(_lastUploadTime!);
+        if (diff.inMinutes < 5) {
+          return; // Skip if less than 5 minutes have passed
+        }
+      }
+
+      await _trackAndUploadLocation(position);
     });
   }
 
   void stopPeriodicTracking() {
-    _trackingTimer?.cancel();
-    _trackingTimer = null;
+    _positionStream?.cancel();
+    _positionStream = null;
     _cachedPatient = null;
   }
 
@@ -39,54 +77,31 @@ class LocationService extends GetxService {
     _cachedPatient = null;
   }
 
-  Future<void> _trackAndUploadLocation() async {
+  Future<void> _trackAndUploadLocation(Position position) async {
     try {
       final supabase = Get.find<SupabaseService>();
       final currentUser = supabase.currentUser;
       if (currentUser == null) {
         _cachedPatient = null;
-        debugPrint('[LocationService] No user logged in, skipping tracking');
         return;
       }
 
-      // Selalu re-fetch patient data agar gps_consent selalu up-to-date
-      // (tidak di-cache permanen, karena consent bisa berubah kapan saja)
       if (_cachedPatient == null) {
         final profile = await supabase.getProfile(currentUser.id);
-        if (profile == null) {
-          debugPrint('[LocationService] Profile not found for user ${currentUser.id}');
-          return;
-        }
+        if (profile == null) return;
 
         final role = (profile.role ?? '').toLowerCase().trim();
         final isPatient = role == 'patient' || role == 'pasien';
-        if (!isPatient) {
-          debugPrint('[LocationService] User role is "$role", not a patient — skipping');
-          return;
-        }
+        if (!isPatient) return;
 
         final patient = await supabase.getPatientByProfileId(currentUser.id);
-        if (patient == null) {
-          debugPrint('[LocationService] No patient record found for profile ${currentUser.id}');
-          return;
-        }
-        if (!patient.gpsConsent) {
-          debugPrint('[LocationService] Patient ${patient.id} has gps_consent=false — skipping tracking');
-          return;
-        }
+        if (patient == null) return;
+        
+        if (!patient.gpsConsent) return;
         _cachedPatient = patient;
-        debugPrint('[LocationService] Patient loaded: ${patient.fullName}, gpsConsent=${patient.gpsConsent}');
       }
 
-      // Upload lokasi
-      final position = await getCurrentPosition();
-      if (position == null) {
-        debugPrint('[LocationService] Could not get GPS position');
-        return;
-      }
-
-      final placeName =
-          'Lat ${position.latitude.toStringAsFixed(5)}, Lng ${position.longitude.toStringAsFixed(5)}';
+      final placeName = 'Lat ${position.latitude.toStringAsFixed(5)}, Lng ${position.longitude.toStringAsFixed(5)}';
 
       final log = TracingModel(
         id: '',
@@ -100,9 +115,10 @@ class LocationService extends GetxService {
       );
 
       await supabase.insertTracingLog(log);
-      debugPrint('[LocationService] ✅ Uploaded location: $placeName');
+      _lastUploadTime = DateTime.now();
+      debugPrint('[LocationService] ✅ Uploaded location (5-min interval): $placeName');
 
-      // Hapus log lebih dari 10 menit
+      // Hapus log lebih dari 24 jam
       await supabase.deleteOldTracingLogs(_cachedPatient!.id);
     } catch (e) {
       debugPrint('[LocationService] _trackAndUploadLocation error: $e');
@@ -120,6 +136,12 @@ class LocationService extends GetxService {
     }
 
     if (permission == LocationPermission.deniedForever) return false;
+
+    // Untuk background tracking, kita minta Always izin
+    if (permission == LocationPermission.whileInUse) {
+      // Tidak masalah untuk foreground service, 
+      // OS Android modern menganggap foreground service setara "while in use".
+    }
 
     return true;
   }

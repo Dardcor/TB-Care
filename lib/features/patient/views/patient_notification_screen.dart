@@ -3,8 +3,11 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../../app/config/app_colors.dart';
 import '../../../app/config/app_text_styles.dart';
+import '../../../app/routes/app_routes.dart';
 import '../../../core/widgets/loading_shimmer.dart';
 import '../controllers/patient_notification_controller.dart';
+import '../controllers/article_controller.dart';
+import '../controllers/patient_dashboard_controller.dart';
 
 class PatientNotificationScreen extends GetView<PatientNotificationController> {
   const PatientNotificationScreen({super.key});
@@ -55,7 +58,24 @@ class PatientNotificationScreen extends GetView<PatientNotificationController> {
             final timeStr = DateFormat('dd MMM yyyy, HH:mm').format(notif.date);
 
             return InkWell(
-              onTap: () => controller.markAsRead(notif.id),
+              onTap: () {
+                controller.markAsRead(notif.id);
+                if (notif.type == 'article') {
+                  try {
+                    // Cari artikel berdasarkan judul dari notifikasi
+                    final articleCtrl = Get.find<ArticleController>();
+                    final articleTitle = notif.title.replaceAll('Artikel Baru: ', '').trim();
+                    final article = articleCtrl.articles.firstWhere((a) => a.title == articleTitle);
+                    
+                    articleCtrl.selectArticle(article);
+                    Get.toNamed(AppRoutes.articleDetail, arguments: article);
+                  } catch (_) {
+                    // Jika belum ter-load, arahkan pasien ke Tab Artikel di Dashboard
+                    Get.until((route) => route.settings.name == AppRoutes.patientDashboard);
+                    Get.find<PatientDashboardController>().changeTab(2);
+                  }
+                }
+              },
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -72,7 +92,7 @@ class PatientNotificationScreen extends GetView<PatientNotificationController> {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        Icons.notifications,
+                        notif.type == 'article' ? Icons.article_outlined : Icons.notifications,
                         color: notif.isRead ? Colors.grey : AppColors.primary,
                         size: 20,
                       ),

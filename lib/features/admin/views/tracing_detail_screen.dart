@@ -172,7 +172,7 @@ class TracingDetailScreen extends GetView<TracingController> {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'Lokasi akan muncul setiap 5 detik',
+                          'Lokasi akan diperbarui setiap 5 menit',
                           style: TextStyle(
                               color: Color(0xFFAAAAAA), fontSize: 12),
                         ),
@@ -185,42 +185,56 @@ class TracingDetailScreen extends GetView<TracingController> {
               // Bangun markers & polyline dari log
               final validLogs = logs
                   .where((l) => l.latitude != null && l.longitude != null)
-                  .toList();
+                  .toList()
+                ..sort((a, b) => (a.visitedAt ?? DateTime(0)).compareTo(b.visitedAt ?? DateTime(0)));
 
               final polylinePoints = validLogs
                   .map((l) => LatLng(l.latitude!, l.longitude!))
                   .toList();
 
               final markers = <Marker>{};
-              for (int i = 0; i < validLogs.length; i++) {
-                final log = validLogs[i];
-                final isFirst = i == 0;
-                final isLast = i == validLogs.length - 1;
 
-                double hue;
-                String title;
-                if (isFirst) {
-                  hue = BitmapDescriptor.hueGreen;
-                  title = '🟢 Titik Awal';
-                } else if (isLast) {
-                  hue = BitmapDescriptor.hueRed;
-                  title = '🔴 Lokasi Terkini';
-                } else {
-                  hue = BitmapDescriptor.hueOrange;
-                  title = 'Titik #${i + 1}';
-                }
-
+              if (validLogs.isNotEmpty) {
+                // 1. Titik Awal
+                final first = validLogs.first;
                 markers.add(Marker(
-                  markerId: MarkerId('log_${log.id}_$i'),
-                  position: LatLng(log.latitude!, log.longitude!),
-                  icon: BitmapDescriptor.defaultMarkerWithHue(hue),
+                  markerId: const MarkerId('start_point'),
+                  position: LatLng(first.latitude!, first.longitude!),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
                   infoWindow: InfoWindow(
-                    title: title,
-                    snippet: log.visitedAt != null
-                        ? DateFormat('HH:mm:ss').format(
-                            log.visitedAt!.toLocal())
-                        : null,
+                    title: '🟢 Titik Awal (24 Jam Terakhir)',
+                    snippet: first.visitedAt != null ? DateFormat('dd MMM, HH:mm').format(first.visitedAt!.toLocal()) : '',
                   ),
+                  zIndex: 2,
+                ));
+
+                // 2. Lokasi Terkini
+                final last = validLogs.last;
+                markers.add(Marker(
+                  markerId: const MarkerId('current_point'),
+                  position: LatLng(last.latitude!, last.longitude!),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                  infoWindow: InfoWindow(
+                    title: '🔴 Lokasi Terkini',
+                    snippet: last.visitedAt != null ? DateFormat('dd MMM, HH:mm').format(last.visitedAt!.toLocal()) : '',
+                  ),
+                  zIndex: 3,
+                ));
+              }
+
+              // 3. Titik Singgah (Stop Points)
+              final stopPoints = controller.getStopPoints(validLogs);
+              for (int i = 0; i < stopPoints.length; i++) {
+                final stop = stopPoints[i];
+                markers.add(Marker(
+                  markerId: MarkerId('stop_point_$i'),
+                  position: LatLng(stop.latitude, stop.longitude),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+                  infoWindow: InfoWindow(
+                    title: '📍 Menetap ${stop.duration.inMinutes} Menit',
+                    snippet: '${DateFormat('HH:mm').format(stop.startTime.toLocal())} - ${DateFormat('HH:mm').format(stop.endTime.toLocal())}',
+                  ),
+                  zIndex: 1,
                 ));
               }
 

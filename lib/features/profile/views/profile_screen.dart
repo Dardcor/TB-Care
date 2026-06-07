@@ -424,23 +424,24 @@ class ProfileScreen extends GetView<ProfileController> {
   void _showLogoutDialog() {
     Get.dialog(
       AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Keluar Akun'),
-        content: const Text('Apakah Anda yakin ingin keluar dari aplikasi Tuberku?'),
+        title: const Text('Keluar Akun', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('Apakah Anda yakin ingin keluar dari akun Anda?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('Batal'),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Get.back();
               controller.logout();
             },
-            child: const Text(
-              'Keluar',
-              style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
+            child: const Text('Keluar', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

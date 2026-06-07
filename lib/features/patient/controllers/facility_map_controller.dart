@@ -20,8 +20,6 @@ class FacilityMapController extends GetxController {
   final filters = ['Terdekat', 'Puskesmas', 'Klinik', 'Apotek', 'Rumah Sakit'];
 
   final Rx<Position?> userPosition = Rx<Position?>(null);
-  final Rx<FacilityModel?> selectedFacility = Rx<FacilityModel?>(null);
-
   GoogleMapController? mapController;
 
   @override
@@ -410,28 +408,12 @@ class FacilityMapController extends GetxController {
             title: facility.name,
             snippet: facility.formattedDistance,
           ),
-          onTap: () => selectFacility(facility),
+          onTap: () => openFacilityDetail(facility),
         ),
       );
     }
 
     markers.assignAll(newMarkers);
-  }
-
-  void selectFacility(FacilityModel facility) {
-    selectedFacility.value = facility;
-    if (mapController != null) {
-      mapController!.animateCamera(
-        CameraUpdate.newLatLngZoom(
-          LatLng(facility.latitude, facility.longitude),
-          15.0,
-        ),
-      );
-    }
-  }
-
-  void clearSelectedFacility() {
-    selectedFacility.value = null;
   }
 
   void openFacilityDetail(FacilityModel facility) {

@@ -464,15 +464,15 @@ class SupabaseService extends GetxService {
 
   Future<void> deleteOldTracingLogs(String patientId) async {
     try {
-      final tenMinutesAgo = DateTime.now()
-          .subtract(const Duration(minutes: 10))
+      final oneDayAgo = DateTime.now()
+          .subtract(const Duration(hours: 24))
           .toUtc()
           .toIso8601String();
       await _client
           .from(SupabaseConfig.tracingLogsTable)
           .delete()
           .eq('patient_id', patientId)
-          .lt('visited_at', tenMinutesAgo);
+          .lt('visited_at', oneDayAgo);
     } catch (e) {
       debugPrint('[SupabaseService] deleteOldTracingLogs error: $e');
     }
@@ -915,37 +915,6 @@ class SupabaseService extends GetxService {
       });
     } catch (e) {
       debugPrint('[SupabaseService] sendNotification error: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> logIntervention({
-    required String adminId,
-    required String patientId,
-    required String type,
-    String? zoneMarked,
-    required String notes,
-  }) async {
-    try {
-      final Map<String, dynamic> data = {
-        'admin_id': adminId,
-        'type': type,
-        'notes': notes,
-      };
-
-      if (patientId.isNotEmpty) {
-        data['patient_id'] = patientId;
-      } else {
-        data['patient_id'] = null;
-      }
-
-      if (zoneMarked != null) {
-        data['zone_marked'] = zoneMarked;
-      }
-
-      await _client.from('interventions').insert(data);
-    } catch (e) {
-      debugPrint('[SupabaseService] logIntervention error: $e');
       rethrow;
     }
   }

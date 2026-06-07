@@ -409,10 +409,115 @@ begin
   from public.patients
   where profile_id = auth.uid();
 
-  if v_patient_id is not null then
-    delete from public.tracing_logs
-    where patient_id = v_patient_id
-      and visited_at < now() - interval '10 minutes';
-  end if;
+    if v_patient_id is not null then
+      delete from public.tracing_logs
+      where patient_id = v_patient_id
+        and visited_at < now() - interval '24 hours';
+    end if;
+  end;
+$$ language plpgsql security definer;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- NOTIFICATION SYSTEM & OUT OF ZONE TRIGGER
+-- ═══════════════════════════════════════════════════════════════════════════
+
+create table if not exists public.notifications (
+    id uuid primary key default uuid_generate_v4(),
+    user_id uuid references public.profiles(id) on delete cascade,
+    title text not null,
+    message text not null,
+    type text not null, -- 'article', 'out_of_zone', 'info'
+    is_read boolean default false,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.notifications enable row level security;
+
+do $$
+begin
+    if not exists (select 1 from pg_policies where policyname = 'Users can view their own notifications.') then
+        create policy "Users can view their own notifications." on public.notifications for select using (
+            auth.uid() = user_id or user_id is null
+        );
+    end if;
+    if not exists (select 1 from pg_policies where policyname = 'Users can update their own notifications.') then
+        create policy "Users can update their own notifications." on public.notifications for update using (
+            auth.uid() = user_id or user_id is null
+        );
+    end if;
+    if not exists (select 1 from pg_policies where policyname = 'Admins can insert notifications.') then
+        create policy "Admins can insert notifications." on public.notifications for insert with check (
+            exists (select 1 from public.profiles where id = auth.uid() and role = 'petugas')
+        );
+    end if;
+end
+$$;
+
+-- Fungsi menghitung jarak (Meters)
+create or replace function public.calculate_distance(lat1 float8, lon1 float8, lat2 float8, lon2 float8)
+returns float8 as $$
+declare
+    x float8;
+    pi float8 = 3.141592653589793;
+    r float8 = 6371000; -- Radius bumi dalam meter
+begin
+    -- Formula Haversine
+    x = sin((lat2 - lat1) * pi / 360) ^ 2 +
+        cos(lat1 * pi / 180) * cos(lat2 * pi / 180) *
+        sin((lon2 - lon1) * pi / 360) ^ 2;
+    return 2 * r * asin(sqrt(x));
+end;
+$$ language plpgsql immutable;
+
+-- Trigger Peringatan Keluar Zona
+create or replace function public.check_out_of_zone()
+returns trigger as $$
+declare
+    v_patient record;
+    v_distance float8;
+begin
+    -- Dapatkan data pasien (terutama koordinat rumah dan petugas pengawasnya)
+    select * into v_patient 
+    from public.patients 
+    where id = new.patient_id;
+
+    if v_patient.domicile_lat is not null and v_patient.domicile_lng is not null then
+        -- Hitung jarak titik GPS saat ini dengan rumah pasien
+        v_distance := public.calculate_distance(
+            v_patient.domicile_lat, v_patient.domicile_lng,
+            new.latitude, new.longitude
+        );
+
+        -- Aturan: Jika pasien berstatus zona merah dan keluar > 100 meter dari rumah
+        if v_patient.zone = 'merah' and v_distance > 100 then
+            
+            -- Kirim peringatan ke petugas pembuat data pasien ini
+            if v_patient.created_by is not null then
+                -- Anti-Spam: Jangan kirim notifikasi jika sudah pernah dikirim dalam 1 jam terakhir
+                if not exists (
+                    select 1 from public.notifications 
+                    where user_id = v_patient.created_by 
+                      and type = 'out_of_zone' 
+                      and message like '%' || coalesce(v_patient.full_name, 'Pasien') || '%'
+                      and created_at > now() - interval '1 hour'
+                ) then
+                    insert into public.notifications (user_id, title, message, type)
+                    values (
+                        v_patient.created_by,
+                        'Peringatan Pelanggaran Zona!',
+                        'Pasien ' || coalesce(v_patient.full_name, 'Tidak dikenal') || ' (Zona Merah) terdeteksi berada sejauh ' || round(v_distance::numeric, 0) || ' meter dari area isolasinya.',
+                        'out_of_zone'
+                    );
+                end if;
+            end if;
+        end if;
+    end if;
+
+    return new;
 end;
 $$ language plpgsql security definer;
+
+drop trigger if exists trigger_check_out_of_zone on public.tracing_logs;
+create trigger trigger_check_out_of_zone
+after insert on public.tracing_logs
+for each row execute procedure public.check_out_of_zone();
